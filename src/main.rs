@@ -6,7 +6,7 @@ use glutin::ContextBuilder;
 
 fn main() {
     let el = EventLoop::new();
-    let wb = WindowBuilder::new().with_title("A fantastic window!");
+    let wb = WindowBuilder::new().with_title("Sepia");
 
     let windowed_context = ContextBuilder::new()
         .with_srgb(true)
