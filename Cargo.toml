@@ -5,14 +5,11 @@ authors = ["Matthew J. Berger <matthewberger@nevada.unr.edu>"]
 edition = "2018"
 
 [dependencies]
-glutin = "0.22.0-alpha3"
-gl = "0.13.0"
+glfw = "0.33.0"
+gl = "0.14.0"
 image = "0.22.3"
 tobj = "0.1.11"
-
-[dependencies.cgmath]
-version = "0.17.0"
-features = ["swizzle"]
+nalgebra = "0.18.1"
 
 [lib]
 name = "support"
