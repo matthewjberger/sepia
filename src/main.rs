@@ -134,7 +134,7 @@ fn main() {
                         gl::Viewport(0, 0, width, height);
                     }
                     aspect_ratio = width as f32 / cmp::max(0, height) as f32;
-                },
+                }
                 WindowEvent::CursorPos(cursor_x, cursor_y) => {
                     camera.process_mouse_movement(
                         (window_width as f32 / 2.0) - cursor_x as f32,
@@ -182,24 +182,31 @@ fn main() {
 
         for cube_id in 0..24 {
             let factor: f32 = cube_id as f32 + (current_time as f32 * 0.3);
-            let model = Matrix4::new_translation(&Vector3::new(0.0, 0.0, -4.0))
-                * Matrix4::new_rotation(Vector3::new(
-                    0.0,
-                    (current_time as f32 * 45_f32).to_radians(),
-                    (current_time as f32 * 21_f32).to_radians(),
-                ))
-                * Matrix4::new_translation(&Vector3::new(
-                    (2.1 * factor).sin() * 2.0,
-                    (1.7 * factor).cos() * 2.0,
-                    (1.3 * factor).sin() * (1.5 * factor).cos() * 2.0,
-                ));
-
-            let modelview = view.to_homogeneous() * model;
+            let modelview = view.to_homogeneous()
+                * (Matrix4::new_translation(&Vector3::new(0.0, 0.0, -4.0))
+                    * Matrix4::new_rotation(Vector3::new(
+                        0.0,
+                        (current_time as f32 * 45_f32).to_radians(),
+                        (current_time as f32 * 21_f32).to_radians(),
+                    ))
+                    * Matrix4::new_translation(&Vector3::new(
+                        (2.1 * factor).sin() * 2.0,
+                        (1.7 * factor).cos() * 2.0,
+                        (1.3 * factor).sin() * (1.5 * factor).cos() * 2.0,
+                    )));
 
             unsafe {
                 gl::UniformMatrix4fv(modelview_matrix_location, 1, gl::FALSE, modelview.as_ptr());
                 gl::DrawArrays(gl::TRIANGLES, 0, 36);
             }
+        }
+
+        let modelview = view.to_homogeneous()
+            * Matrix4::new_translation(&Vector3::new(0.0, 10.0, 0.0))
+            * Matrix4::new_nonuniform_scaling(&Vector3::new(100.0, 0.2, 100.0));
+        unsafe {
+            gl::UniformMatrix4fv(modelview_matrix_location, 1, gl::FALSE, modelview.as_ptr());
+            gl::DrawArrays(gl::TRIANGLES, 0, 36);
         }
 
         window.swap_buffers();
