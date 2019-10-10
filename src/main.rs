@@ -74,7 +74,7 @@ fn main() {
 
     gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
-    // Initialize
+    // TODO: Make common asset loader to build path to locate shaders, models, etc
     let mut shader_program = ShaderProgram::new();
     shader_program
         .vertex_shader("assets/shaders/spinny-cube/spinny-cube.vs.glsl")
