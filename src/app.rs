@@ -58,8 +58,8 @@ impl<'a> App<'a> {
             return;
         }
 
-        // let state = self.state_machine.first_mut().unwrap();
-        // state.initialize();
+        let state = self.state_machine.first_mut().unwrap();
+        state.initialize();
 
         let mut current_time = self.context.get_time();
         let mut last_frame_time = current_time;
@@ -80,16 +80,16 @@ impl<'a> App<'a> {
                     },
                     _ => {}
                 }
-                // state.handle_events(self_rc.clone(), &event);
+                state.handle_events(&event);
             }
 
-            // state.update(self_rc.clone());
+            state.update();
 
             unsafe {
                 gl::ClearBufferfv(gl::COLOR, 0, BACKGROUND_COLOR as *const f32);
             }
 
-            // state.render(self_rc.clone());
+            state.render();
 
             self.window.swap_buffers();
         }
