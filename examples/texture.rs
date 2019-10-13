@@ -69,7 +69,7 @@ impl State for MainState {
         }
     }
 
-    fn render(&mut self, state_data: &mut StateData) {
+    fn render(&mut self, _: &mut StateData) {
         self.shader_program.activate();
         self.texture.bind(0);
         unsafe {
