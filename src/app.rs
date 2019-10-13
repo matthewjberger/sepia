@@ -1,22 +1,40 @@
 pub use gl::types::*;
 pub use glfw::{Action, Context, CursorMode, Key, WindowEvent};
-use std::{cmp, rc::Rc, sync::mpsc::Receiver};
+use std::sync::mpsc::Receiver;
 
 const BACKGROUND_COLOR: &[GLfloat; 4] = &[0.0, 0.25, 0.0, 1.0];
 
+// TODO: Generalize refs here into StateData struct and pass that around
 pub trait State {
-    fn initialize(&mut self) {}
-    fn handle_events(&mut self, event: &glfw::WindowEvent) {}
-    fn update(&mut self) {}
-    fn render(&mut self) {}
+    fn initialize(&mut self);
+
+    // Called when events are handled
+    fn handle_events(
+        &mut self,
+        event: &glfw::WindowEvent,
+        window: &mut glfw::Window,
+        delta_time: f32,
+    );
+
+    // Called each frame
+    fn update(&mut self, window: &mut glfw::Window, delta_time: f32);
+
+    // Called each frame after updates
+    fn render(&mut self, current_time: f32, window: &mut glfw::Window);
 }
 
 pub struct EmptyState;
 impl State for EmptyState {
     fn initialize(&mut self) {}
-    fn handle_events(&mut self, event: &glfw::WindowEvent) {}
-    fn update(&mut self) {}
-    fn render(&mut self) {}
+    fn handle_events(
+        &mut self,
+        event: &glfw::WindowEvent,
+        window: &mut glfw::Window,
+        delta_time: f32,
+    ) {
+    }
+    fn update(&mut self, window: &mut glfw::Window, delta_time: f32) {}
+    fn render(&mut self, current_time: f32, window: &mut glfw::Window) {}
 }
 
 pub struct App<'a> {
@@ -48,11 +66,6 @@ impl<'a> App<'a> {
         }
     }
 
-    fn aspect_ratio(&self) -> f32 {
-        let (window_width, window_height) = self.window.get_size();
-        window_width as f32 / cmp::max(0, window_height) as f32
-    }
-
     pub fn run(&mut self) {
         if self.state_machine.is_empty() {
             return;
@@ -66,7 +79,7 @@ impl<'a> App<'a> {
 
         while !self.window.should_close() {
             current_time = self.context.get_time();
-            let _delta_time = (current_time - last_frame_time) as f32;
+            let delta_time = (current_time - last_frame_time) as f32;
             last_frame_time = current_time;
 
             self.context.poll_events();
@@ -80,27 +93,18 @@ impl<'a> App<'a> {
                     },
                     _ => {}
                 }
-                state.handle_events(&event);
+                state.handle_events(&event, &mut self.window, delta_time);
             }
 
-            state.update();
+            state.update(&mut self.window, delta_time);
 
             unsafe {
                 gl::ClearBufferfv(gl::COLOR, 0, BACKGROUND_COLOR as *const f32);
             }
 
-            state.render();
+            state.render(current_time as f32, &mut self.window);
 
             self.window.swap_buffers();
         }
-    }
-
-    fn center_cursor(&mut self) {
-        let (window_width, window_height) = self.window.get_size();
-        self.window.set_cursor_pos(
-            f64::from(window_width) / 2.0,
-            f64::from(window_height) / 2.0,
-        );
-        self.window.set_cursor_mode(CursorMode::Disabled);
     }
 }
