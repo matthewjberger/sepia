@@ -10,7 +10,3 @@ gl = "0.14.0"
 image = "0.22.3"
 tobj = "0.1.11"
 nalgebra = "0.18.1"
-
-[lib]
-name = "support"
-path = "src/support/lib.rs"
