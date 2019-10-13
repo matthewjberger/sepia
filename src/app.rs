@@ -1,17 +1,33 @@
 pub use gl::types::*;
 pub use glfw::{Action, Context, CursorMode, Key, WindowEvent};
-use std::{cmp, sync::mpsc::Receiver};
+use std::{cmp, rc::Rc, sync::mpsc::Receiver};
 
 const BACKGROUND_COLOR: &[GLfloat; 4] = &[0.0, 0.25, 0.0, 1.0];
 
-pub struct App {
+pub trait State {
+    fn initialize(&mut self) {}
+    fn handle_events(&mut self, event: &glfw::WindowEvent) {}
+    fn update(&mut self) {}
+    fn render(&mut self) {}
+}
+
+pub struct EmptyState;
+impl State for EmptyState {
+    fn initialize(&mut self) {}
+    fn handle_events(&mut self, event: &glfw::WindowEvent) {}
+    fn update(&mut self) {}
+    fn render(&mut self) {}
+}
+
+pub struct App<'a> {
     context: glfw::Glfw,
     window: glfw::Window,
     events: Receiver<(f64, glfw::WindowEvent)>,
+    state_machine: Vec<&'a mut dyn State>,
 }
 
-impl App {
-    pub fn new() -> Self {
+impl<'a> App<'a> {
+    pub fn new(state_machine: Vec<&'a mut dyn State>) -> Self {
         let context = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
         let (mut window, events) = context
             .create_window(800, 600, "Sepia", glfw::WindowMode::Windowed)
@@ -28,6 +44,7 @@ impl App {
             window,
             context,
             events,
+            state_machine,
         }
     }
 
@@ -37,6 +54,13 @@ impl App {
     }
 
     pub fn run(&mut self) {
+        if self.state_machine.is_empty() {
+            return;
+        }
+
+        // let state = self.state_machine.first_mut().unwrap();
+        // state.initialize();
+
         let mut current_time = self.context.get_time();
         let mut last_frame_time = current_time;
 
@@ -56,11 +80,16 @@ impl App {
                     },
                     _ => {}
                 }
+                // state.handle_events(self_rc.clone(), &event);
             }
+
+            // state.update(self_rc.clone());
 
             unsafe {
                 gl::ClearBufferfv(gl::COLOR, 0, BACKGROUND_COLOR as *const f32);
             }
+
+            // state.render(self_rc.clone());
 
             self.window.swap_buffers();
         }
