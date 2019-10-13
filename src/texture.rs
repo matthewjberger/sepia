@@ -61,10 +61,11 @@ impl Texture {
     }
 
     fn load_image(path: &str, target: u32) -> DynamicImage {
-        let img = image::open(path).unwrap();
+        let mut img = image::open(path).unwrap();
         // TODO: Check the image to set this
         let pixel_format = gl::RGB;
         let (width, height) = img.dimensions();
+        img = img.flipv();
         unsafe {
             gl::TexImage2D(
                 target,
@@ -79,7 +80,7 @@ impl Texture {
             );
             gl::GenerateMipmap(target)
         }
-        img.flipv()
+        img
     }
 }
 
