@@ -5,19 +5,18 @@ use sepia::camera::*;
 use sepia::shader::*;
 use std::{cmp, mem, ptr};
 
-const BACKGROUND_COLOR: &[GLfloat; 4] = &[0.0, 0.25, 0.0, 1.0];
 const ONES: &[GLfloat; 1] = &[1.0];
 
 #[rustfmt::skip]
 const VERTEX_POSITIONS: &[GLfloat; 108] =
     &[
-       -0.25,  0.25, -0.25,
-       -0.25, -0.25, -0.25,
+        -0.25,  0.25, -0.25,
+        -0.25, -0.25, -0.25,
         0.25, -0.25, -0.25,
 
         0.25, -0.25, -0.25,
         0.25,  0.25, -0.25,
-       -0.25,  0.25, -0.25,
+        -0.25,  0.25, -0.25,
 
         0.25, -0.25, -0.25,
         0.25, -0.25,  0.25,
@@ -28,36 +27,36 @@ const VERTEX_POSITIONS: &[GLfloat; 108] =
         0.25,  0.25, -0.25,
 
         0.25, -0.25,  0.25,
-       -0.25, -0.25,  0.25,
+        -0.25, -0.25,  0.25,
         0.25,  0.25,  0.25,
 
-       -0.25, -0.25,  0.25,
-       -0.25,  0.25,  0.25,
+        -0.25, -0.25,  0.25,
+        -0.25,  0.25,  0.25,
         0.25,  0.25,  0.25,
 
-       -0.25, -0.25,  0.25,
-       -0.25, -0.25, -0.25,
-       -0.25,  0.25,  0.25,
+        -0.25, -0.25,  0.25,
+        -0.25, -0.25, -0.25,
+        -0.25,  0.25,  0.25,
 
-       -0.25, -0.25, -0.25,
-       -0.25,  0.25, -0.25,
-       -0.25,  0.25,  0.25,
+        -0.25, -0.25, -0.25,
+        -0.25,  0.25, -0.25,
+        -0.25,  0.25,  0.25,
 
-       -0.25, -0.25,  0.25,
+        -0.25, -0.25,  0.25,
         0.25, -0.25,  0.25,
         0.25, -0.25, -0.25,
 
         0.25, -0.25, -0.25,
-       -0.25, -0.25, -0.25,
-       -0.25, -0.25,  0.25,
+        -0.25, -0.25, -0.25,
+        -0.25, -0.25,  0.25,
 
-       -0.25,  0.25, -0.25,
+        -0.25,  0.25, -0.25,
         0.25,  0.25, -0.25,
         0.25,  0.25,  0.25,
 
         0.25,  0.25,  0.25,
-       -0.25,  0.25,  0.25,
-       -0.25,  0.25, -0.25
+        -0.25,  0.25,  0.25,
+        -0.25,  0.25, -0.25
     ];
 
 #[derive(Default)]
@@ -99,15 +98,13 @@ impl State for MainState {
         }
     }
 
-    fn handle_events(
-        &mut self,
-        event: &glfw::WindowEvent,
-        window: &mut glfw::Window,
-        delta_time: f32,
-    ) {
+    fn handle_events(&mut self, state_data: &mut StateData, event: &glfw::WindowEvent) {
         match *event {
+            glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
+                state_data.window.set_should_close(true);
+            }
             WindowEvent::CursorPos(cursor_x, cursor_y) => {
-                let (window_width, window_height) = window.get_size();
+                let (window_width, window_height) = state_data.window.get_size();
                 self.camera.process_mouse_movement(
                     (window_width as f32 / 2.0) - cursor_x as f32,
                     (window_height as f32 / 2.0) - cursor_y as f32,
@@ -117,30 +114,34 @@ impl State for MainState {
         }
     }
 
-    fn update(&mut self, window: &mut glfw::Window, delta_time: f32) {
-        if window.get_key(glfw::Key::W) == glfw::Action::Press {
-            self.camera.translate(CameraDirection::Forward, delta_time);
+    fn update(&mut self, state_data: &mut StateData) {
+        if state_data.window.get_key(glfw::Key::W) == glfw::Action::Press {
+            self.camera
+                .translate(CameraDirection::Forward, state_data.delta_time);
         }
-        if window.get_key(glfw::Key::A) == glfw::Action::Press {
-            self.camera.translate(CameraDirection::Left, delta_time);
+        if state_data.window.get_key(glfw::Key::A) == glfw::Action::Press {
+            self.camera
+                .translate(CameraDirection::Left, state_data.delta_time);
         }
-        if window.get_key(glfw::Key::S) == glfw::Action::Press {
-            self.camera.translate(CameraDirection::Backward, delta_time);
+        if state_data.window.get_key(glfw::Key::S) == glfw::Action::Press {
+            self.camera
+                .translate(CameraDirection::Backward, state_data.delta_time);
         }
-        if window.get_key(glfw::Key::D) == glfw::Action::Press {
-            self.camera.translate(CameraDirection::Right, delta_time);
+        if state_data.window.get_key(glfw::Key::D) == glfw::Action::Press {
+            self.camera
+                .translate(CameraDirection::Right, state_data.delta_time);
         }
 
-        let (window_width, window_height) = window.get_size();
-        window.set_cursor_pos(
+        let (window_width, window_height) = state_data.window.get_size();
+        state_data.window.set_cursor_pos(
             f64::from(window_width) / 2.0,
             f64::from(window_height) / 2.0,
         );
-        window.set_cursor_mode(CursorMode::Disabled);
+        state_data.window.set_cursor_mode(CursorMode::Disabled);
     }
 
-    fn render(&mut self, current_time: f32, window: &mut glfw::Window) {
-        let (window_width, window_height) = window.get_size();
+    fn render(&mut self, state_data: &mut StateData) {
+        let (window_width, window_height) = state_data.window.get_size();
         let aspect_ratio = window_width as f32 / cmp::max(0, window_height) as f32;
         let projection = Perspective3::new(aspect_ratio, 50_f32.to_degrees(), 0.1_f32, 1000_f32);
         self.shader_program.activate();
@@ -157,13 +158,13 @@ impl State for MainState {
             );
         }
         for cube_id in 0..24 {
-            let factor: f32 = cube_id as f32 + (current_time as f32 * 0.3);
+            let factor: f32 = cube_id as f32 + (state_data.current_time as f32 * 0.3);
             let modelview = self.camera.view_matrix().to_homogeneous()
                 * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -4.0))
                 * Matrix4::new_rotation(Vector3::new(
                     0.0,
-                    (current_time as f32 * 45_f32).to_radians(),
-                    (current_time as f32 * 21_f32).to_radians(),
+                    (state_data.current_time as f32 * 45_f32).to_radians(),
+                    (state_data.current_time as f32 * 21_f32).to_radians(),
                 ))
                 * Matrix4::new_translation(&Vector3::new(
                     (2.1 * factor).sin() * 2.0,

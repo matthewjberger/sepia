@@ -4,38 +4,28 @@ use std::sync::mpsc::Receiver;
 
 const BACKGROUND_COLOR: &[GLfloat; 4] = &[0.0, 0.25, 0.0, 1.0];
 
-// TODO: Generalize refs here into StateData struct and pass that around
+pub struct StateData<'a> {
+    pub window: &'a mut glfw::Window,
+    pub delta_time: f32,
+    pub current_time: f32,
+}
+
 pub trait State {
-    fn initialize(&mut self);
+    // Called once at the beginning of a run
+    fn initialize(&mut self) {}
 
     // Called when events are handled
-    fn handle_events(
-        &mut self,
-        event: &glfw::WindowEvent,
-        window: &mut glfw::Window,
-        delta_time: f32,
-    );
+    fn handle_events(&mut self, _: &mut StateData, _: &glfw::WindowEvent) {}
 
     // Called each frame
-    fn update(&mut self, window: &mut glfw::Window, delta_time: f32);
+    fn update(&mut self, _: &mut StateData) {}
 
     // Called each frame after updates
-    fn render(&mut self, current_time: f32, window: &mut glfw::Window);
+    fn render(&mut self, _: &mut StateData) {}
 }
 
 pub struct EmptyState;
-impl State for EmptyState {
-    fn initialize(&mut self) {}
-    fn handle_events(
-        &mut self,
-        event: &glfw::WindowEvent,
-        window: &mut glfw::Window,
-        delta_time: f32,
-    ) {
-    }
-    fn update(&mut self, window: &mut glfw::Window, delta_time: f32) {}
-    fn render(&mut self, current_time: f32, window: &mut glfw::Window) {}
-}
+impl State for EmptyState {}
 
 pub struct App<'a> {
     context: glfw::Glfw,
@@ -71,7 +61,10 @@ impl<'a> App<'a> {
             return;
         }
 
-        let state = self.state_machine.first_mut().unwrap();
+        let state = self
+            .state_machine
+            .first_mut()
+            .expect("Couldn't get first state!");
         state.initialize();
 
         let mut current_time = self.context.get_time();
@@ -82,27 +75,24 @@ impl<'a> App<'a> {
             let delta_time = (current_time - last_frame_time) as f32;
             last_frame_time = current_time;
 
+            let mut state_data = StateData {
+                window: &mut self.window,
+                delta_time,
+                current_time: current_time as f32,
+            };
+
             self.context.poll_events();
             for (_, event) in glfw::flush_messages(&self.events) {
-                match event {
-                    glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
-                        self.window.set_should_close(true)
-                    }
-                    glfw::WindowEvent::FramebufferSize(width, height) => unsafe {
-                        gl::Viewport(0, 0, width, height);
-                    },
-                    _ => {}
-                }
-                state.handle_events(&event, &mut self.window, delta_time);
+                state.handle_events(&mut state_data, &event);
             }
 
-            state.update(&mut self.window, delta_time);
+            state.update(&mut state_data);
 
             unsafe {
                 gl::ClearBufferfv(gl::COLOR, 0, BACKGROUND_COLOR as *const f32);
             }
 
-            state.render(current_time as f32, &mut self.window);
+            state.render(&mut state_data);
 
             self.window.swap_buffers();
         }
