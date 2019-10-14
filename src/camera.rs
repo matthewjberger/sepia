@@ -26,6 +26,7 @@ impl Default for Camera {
     }
 }
 
+// TODO: Add a way to direct/position the camera
 impl Camera {
     pub fn new() -> Self {
         let mut camera = Camera {

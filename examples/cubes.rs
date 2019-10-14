@@ -1,22 +1,23 @@
-use na::{Matrix4, Perspective3, Vector3};
+use na::{Matrix4, Vector3};
 use nalgebra as na;
+use nalgebra_glm as glm;
 use sepia::app::*;
 use sepia::camera::*;
 use sepia::shader::*;
-use std::{cmp, mem, ptr};
+use std::{mem, ptr};
 
 const ONES: &[GLfloat; 1] = &[1.0];
 
 #[rustfmt::skip]
 const VERTEX_POSITIONS: &[GLfloat; 108] =
     &[
-        -0.25,  0.25, -0.25,
-        -0.25, -0.25, -0.25,
+       -0.25,  0.25, -0.25,
+       -0.25, -0.25, -0.25,
         0.25, -0.25, -0.25,
 
         0.25, -0.25, -0.25,
         0.25,  0.25, -0.25,
-        -0.25,  0.25, -0.25,
+       -0.25,  0.25, -0.25,
 
         0.25, -0.25, -0.25,
         0.25, -0.25,  0.25,
@@ -27,36 +28,36 @@ const VERTEX_POSITIONS: &[GLfloat; 108] =
         0.25,  0.25, -0.25,
 
         0.25, -0.25,  0.25,
-        -0.25, -0.25,  0.25,
+       -0.25, -0.25,  0.25,
         0.25,  0.25,  0.25,
 
-        -0.25, -0.25,  0.25,
-        -0.25,  0.25,  0.25,
+       -0.25, -0.25,  0.25,
+       -0.25,  0.25,  0.25,
         0.25,  0.25,  0.25,
 
-        -0.25, -0.25,  0.25,
-        -0.25, -0.25, -0.25,
-        -0.25,  0.25,  0.25,
+       -0.25, -0.25,  0.25,
+       -0.25, -0.25, -0.25,
+       -0.25,  0.25,  0.25,
 
-        -0.25, -0.25, -0.25,
-        -0.25,  0.25, -0.25,
-        -0.25,  0.25,  0.25,
+       -0.25, -0.25, -0.25,
+       -0.25,  0.25, -0.25,
+       -0.25,  0.25,  0.25,
 
-        -0.25, -0.25,  0.25,
+       -0.25, -0.25,  0.25,
         0.25, -0.25,  0.25,
         0.25, -0.25, -0.25,
 
         0.25, -0.25, -0.25,
-        -0.25, -0.25, -0.25,
-        -0.25, -0.25,  0.25,
+       -0.25, -0.25, -0.25,
+       -0.25, -0.25,  0.25,
 
-        -0.25,  0.25, -0.25,
+       -0.25,  0.25, -0.25,
         0.25,  0.25, -0.25,
         0.25,  0.25,  0.25,
 
         0.25,  0.25,  0.25,
-        -0.25,  0.25,  0.25,
-        -0.25,  0.25, -0.25
+       -0.25,  0.25,  0.25,
+       -0.25,  0.25, -0.25
     ];
 
 #[derive(Default)]
@@ -141,9 +142,12 @@ impl State for MainState {
     }
 
     fn render(&mut self, state_data: &mut StateData) {
-        let (window_width, window_height) = state_data.window.get_size();
-        let aspect_ratio = window_width as f32 / cmp::max(0, window_height) as f32;
-        let projection = Perspective3::new(aspect_ratio, 50_f32.to_degrees(), 0.1_f32, 1000_f32);
+        let projection = glm::perspective(
+            state_data.aspect_ratio,
+            50_f32.to_degrees(),
+            0.1_f32,
+            1000_f32,
+        );
         self.shader_program.activate();
         let modelview_matrix_location = self.shader_program.uniform_location("modelview_matrix");
         let projection_matrix_location = self.shader_program.uniform_location("projection_matrix");
@@ -154,7 +158,7 @@ impl State for MainState {
                 projection_matrix_location,
                 1,
                 gl::FALSE,
-                projection.into_inner().as_ptr(),
+                projection.as_ptr(),
             );
         }
         for cube_id in 0..24 {
