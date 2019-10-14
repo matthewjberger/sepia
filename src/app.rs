@@ -1,6 +1,6 @@
 pub use gl::types::*;
 pub use glfw::{Action, Context, CursorMode, Key, WindowEvent};
-use std::sync::mpsc::Receiver;
+use std::{cmp, sync::mpsc::Receiver};
 
 const BACKGROUND_COLOR: &[GLfloat; 4] = &[0.0, 0.25, 0.0, 1.0];
 
@@ -8,6 +8,7 @@ pub struct StateData<'a> {
     pub window: &'a mut glfw::Window,
     pub delta_time: f32,
     pub current_time: f32,
+    pub aspect_ratio: f32,
 }
 
 pub trait State {
@@ -70,6 +71,9 @@ impl<'a> App<'a> {
         let mut current_time = self.context.get_time();
         let mut last_frame_time = current_time;
 
+        let (window_width, window_height) = self.window.get_size();
+        let aspect_ratio = window_width as f32 / cmp::max(0, window_height) as f32;
+
         while !self.window.should_close() {
             current_time = self.context.get_time();
             let delta_time = (current_time - last_frame_time) as f32;
@@ -79,6 +83,7 @@ impl<'a> App<'a> {
                 window: &mut self.window,
                 delta_time,
                 current_time: current_time as f32,
+                aspect_ratio,
             };
 
             self.context.poll_events();

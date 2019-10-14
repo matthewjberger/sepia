@@ -1,56 +1,61 @@
 use crate::shader::*;
 use crate::texture::*;
-use na::Matrix4;
-use nalgebra as na;
+use nalgebra::Matrix4;
+use nalgebra_glm as glm;
 use std::{mem, ptr};
 
 // TODO: Make common primitive geometry file (with indices)
 #[rustfmt::skip]
 const VERTICES: &[GLfloat; 108] =
-&[
-    // Positions
-    -1.0,  1.0, -1.0,
-    -1.0, -1.0, -1.0,
-     1.0, -1.0, -1.0,
-     1.0, -1.0, -1.0,
-     1.0,  1.0, -1.0,
-    -1.0,  1.0, -1.0,
+    &[
+       -1.0,  1.0, -1.0,
+       -1.0, -1.0, -1.0,
+        1.0, -1.0, -1.0,
 
-    -1.0, -1.0,  1.0,
-    -1.0, -1.0, -1.0,
-    -1.0,  1.0, -1.0,
-    -1.0,  1.0, -1.0,
-    -1.0,  1.0,  1.0,
-    -1.0, -1.0,  1.0,
+        1.0, -1.0, -1.0,
+        1.0,  1.0, -1.0,
+       -1.0,  1.0, -1.0,
 
-     1.0, -1.0, -1.0,
-     1.0, -1.0,  1.0,
-     1.0,  1.0,  1.0,
-     1.0,  1.0,  1.0,
-     1.0,  1.0, -1.0,
-     1.0, -1.0, -1.0,
+        1.0, -1.0, -1.0,
+        1.0, -1.0,  1.0,
+        1.0,  1.0, -1.0,
 
-    -1.0, -1.0, 1.0,
-    -1.0,  1.0, 1.0,
-     1.0,  1.0, 1.0,
-     1.0,  1.0, 1.0,
-     1.0, -1.0, 1.0,
-    -1.0, -1.0, 1.0,
+        1.0, -1.0,  1.0,
+        1.0,  1.0,  1.0,
+        1.0,  1.0, -1.0,
 
-    -1.0, 1.0, -1.0,
-     1.0, 1.0, -1.0,
-     1.0, 1.0,  1.0,
-     1.0, 1.0,  1.0,
-    -1.0, 1.0,  1.0,
-    -1.0, 1.0, -1.0,
+        1.0, -1.0,  1.0,
+       -1.0, -1.0,  1.0,
+        1.0,  1.0,  1.0,
 
-    -1.0, -1.0, -1.0,
-    -1.0, -1.0,  1.0,
-     1.0, -1.0, -1.0,
-     1.0, -1.0, -1.0,
-    -1.0, -1.0,  1.0,
-     1.0, -1.0,  1.0
-];
+       -1.0, -1.0,  1.0,
+       -1.0,  1.0,  1.0,
+        1.0,  1.0,  1.0,
+
+       -1.0, -1.0,  1.0,
+       -1.0, -1.0, -1.0,
+       -1.0,  1.0,  1.0,
+
+       -1.0, -1.0, -1.0,
+       -1.0,  1.0, -1.0,
+       -1.0,  1.0,  1.0,
+
+       -1.0, -1.0,  1.0,
+        1.0, -1.0,  1.0,
+        1.0, -1.0, -1.0,
+
+        1.0, -1.0, -1.0,
+       -1.0, -1.0, -1.0,
+       -1.0, -1.0,  1.0,
+
+       -1.0,  1.0, -1.0,
+        1.0,  1.0, -1.0,
+        1.0,  1.0,  1.0,
+
+        1.0,  1.0,  1.0,
+       -1.0,  1.0,  1.0,
+       -1.0,  1.0, -1.0
+    ];
 
 #[derive(Default)]
 pub struct Skybox {
@@ -84,21 +89,28 @@ impl Skybox {
                 VERTICES.as_ptr() as *const gl::types::GLvoid,
                 gl::STATIC_DRAW,
             );
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 0, ptr::null());
             gl::EnableVertexAttribArray(0);
+            gl::VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                3 * mem::size_of::<GLfloat>() as i32,
+                ptr::null(),
+            );
         }
 
         skybox.projection_matrix_location = shader_program.uniform_location("projection");
         skybox.view_matrix_location = shader_program.uniform_location("view");
         skybox.skybox_location = shader_program.uniform_location("skybox");
-
         skybox.texture = Texture::cubemap_from_files(paths);
-
         skybox
     }
 
     pub fn render(&self, projection_matrix: &Matrix4<f32>, view_matrix: &Matrix4<f32>) {
         self.shader_program.activate();
+
+        let view_matrix = glm::mat3_to_mat4(&glm::mat4_to_mat3(&glm::convert(*view_matrix)));
 
         unsafe {
             gl::BindVertexArray(self.vao);
@@ -109,19 +121,19 @@ impl Skybox {
                 self.projection_matrix_location,
                 1,
                 gl::FALSE,
-                (*view_matrix).as_ptr(),
+                (*projection_matrix).as_slice().as_ptr(),
             );
             gl::UniformMatrix4fv(
                 self.view_matrix_location,
                 1,
                 gl::FALSE,
-                (*projection_matrix).as_ptr(),
+                view_matrix.as_slice().as_ptr(),
             );
 
             gl::BindVertexArray(self.vao);
 
             self.texture.bind(0);
-            gl::Uniform1fv(self.skybox_location, 1, ptr::null());
+            gl::Uniform1i(self.skybox_location, 0);
 
             gl::DrawArrays(gl::TRIANGLES, 0, 36);
 
