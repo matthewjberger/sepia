@@ -159,7 +159,7 @@ impl State for MainState {
         }
         for cube_id in 0..24 {
             let factor: f32 = cube_id as f32 + (state_data.current_time as f32 * 0.3);
-            let modelview = self.camera.view_matrix().to_homogeneous()
+            let modelview = self.camera.view_matrix()
                 * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -4.0))
                 * Matrix4::new_rotation(Vector3::new(
                     0.0,
@@ -178,7 +178,7 @@ impl State for MainState {
             }
         }
 
-        let modelview = self.camera.view_matrix().to_homogeneous()
+        let modelview = self.camera.view_matrix()
             * Matrix4::new_translation(&Vector3::new(0.0, 10.0, 0.0))
             * Matrix4::new_nonuniform_scaling(&Vector3::new(100.0, 0.2, 100.0));
 

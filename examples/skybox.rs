@@ -1,125 +1,26 @@
 use nalgebra_glm as glm;
 use sepia::app::*;
 use sepia::camera::*;
-use sepia::shader::*;
-use sepia::texture::*;
-use std::{mem, ptr};
+use sepia::skybox::*;
 
 const ONES: &[GLfloat; 1] = &[1.0];
 
-#[rustfmt::skip]
-const VERTEX_POSITIONS: &[GLfloat; 108] =
-    &[
-       -1.0,  1.0, -1.0,
-       -1.0, -1.0, -1.0,
-        1.0, -1.0, -1.0,
-
-        1.0, -1.0, -1.0,
-        1.0,  1.0, -1.0,
-       -1.0,  1.0, -1.0,
-
-        1.0, -1.0, -1.0,
-        1.0, -1.0,  1.0,
-        1.0,  1.0, -1.0,
-
-        1.0, -1.0,  1.0,
-        1.0,  1.0,  1.0,
-        1.0,  1.0, -1.0,
-
-        1.0, -1.0,  1.0,
-       -1.0, -1.0,  1.0,
-        1.0,  1.0,  1.0,
-
-       -1.0, -1.0,  1.0,
-       -1.0,  1.0,  1.0,
-        1.0,  1.0,  1.0,
-
-       -1.0, -1.0,  1.0,
-       -1.0, -1.0, -1.0,
-       -1.0,  1.0,  1.0,
-
-       -1.0, -1.0, -1.0,
-       -1.0,  1.0, -1.0,
-       -1.0,  1.0,  1.0,
-
-       -1.0, -1.0,  1.0,
-        1.0, -1.0,  1.0,
-        1.0, -1.0, -1.0,
-
-        1.0, -1.0, -1.0,
-       -1.0, -1.0, -1.0,
-       -1.0, -1.0,  1.0,
-
-       -1.0,  1.0, -1.0,
-        1.0,  1.0, -1.0,
-        1.0,  1.0,  1.0,
-
-        1.0,  1.0,  1.0,
-       -1.0,  1.0,  1.0,
-       -1.0,  1.0, -1.0
-    ];
-
 #[derive(Default)]
 struct MainState {
-    vao: u32,
-    vbo: u32,
-    shader_program: ShaderProgram,
     camera: Camera,
-    projection_matrix_location: i32,
-    view_matrix_location: i32,
-    skybox_location: i32,
-    texture: Texture,
+    skybox: Skybox,
 }
 
 impl State for MainState {
     fn initialize(&mut self) {
-        self.shader_program = ShaderProgram::new();
-        self.shader_program
-            .vertex_shader("assets/shaders/skybox/skybox.vs.glsl")
-            .fragment_shader("assets/shaders/skybox/skybox.fs.glsl")
-            .link();
-
-        unsafe {
-            gl::GenVertexArrays(1, &mut self.vao);
-            gl::BindVertexArray(self.vao);
-
-            gl::GenBuffers(1, &mut self.vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (VERTEX_POSITIONS.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
-                VERTEX_POSITIONS.as_ptr() as *const gl::types::GLvoid,
-                gl::STATIC_DRAW,
-            );
-            gl::EnableVertexAttribArray(0);
-            gl::VertexAttribPointer(
-                0,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                3 * mem::size_of::<GLfloat>() as i32,
-                ptr::null(),
-            );
-
-            // gl::Enable(gl::CULL_FACE);
-            // gl::FrontFace(gl::CW);
-
-            // gl::Enable(gl::DEPTH_TEST);
-            // gl::DepthFunc(gl::LEQUAL);
-        }
-
-        self.projection_matrix_location = self.shader_program.uniform_location("projection");
-        self.view_matrix_location = self.shader_program.uniform_location("view");
-        self.skybox_location = self.shader_program.uniform_location("skybox");
-        let paths = &[
+        self.skybox = Skybox::new(&[
             "assets/textures/skyboxes/mountains/right.tga".to_string(),
             "assets/textures/skyboxes/mountains/left.tga".to_string(),
             "assets/textures/skyboxes/mountains/bottom.tga".to_string(),
             "assets/textures/skyboxes/mountains/top.tga".to_string(),
             "assets/textures/skyboxes/mountains/back.tga".to_string(),
             "assets/textures/skyboxes/mountains/front.tga".to_string(),
-        ];
-        self.texture = Texture::cubemap_from_files(paths);
+        ]);
     }
 
     fn handle_events(&mut self, state_data: &mut StateData, event: &glfw::WindowEvent) {
@@ -172,39 +73,9 @@ impl State for MainState {
             1000_f32,
         );
 
-        self.shader_program.activate();
-
-        let view_matrix = glm::mat3_to_mat4(&glm::mat4_to_mat3(&glm::convert(
-            self.camera.view_matrix().to_homogeneous(),
-        )));
-
         unsafe {
             gl::ClearBufferfv(gl::DEPTH, 0, ONES as *const f32);
-
-            gl::BindVertexArray(self.vao);
-            gl::Enable(gl::DEPTH_TEST);
-            gl::DepthFunc(gl::LEQUAL);
-
-            gl::UniformMatrix4fv(
-                self.projection_matrix_location,
-                1,
-                gl::FALSE,
-                projection.as_ptr(),
-            );
-
-            gl::UniformMatrix4fv(
-                self.view_matrix_location,
-                1,
-                gl::FALSE,
-                view_matrix.as_slice().as_ptr(),
-            );
-
-            self.texture.bind(0);
-            gl::Uniform1i(self.skybox_location, 0);
-
-            gl::DrawArrays(gl::TRIANGLES, 0, 36);
-
-            gl::DepthFunc(gl::LESS);
+            self.skybox.render(&projection, &self.camera.view_matrix())
         }
     }
 }

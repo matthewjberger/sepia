@@ -6,7 +6,7 @@ use std::{mem, ptr};
 
 // TODO: Make common primitive geometry file (with indices)
 #[rustfmt::skip]
-const VERTICES: &[GLfloat; 108] =
+const VERTEX_POSITIONS: &[GLfloat; 108] =
     &[
        -1.0,  1.0, -1.0,
        -1.0, -1.0, -1.0,
@@ -71,8 +71,9 @@ pub struct Skybox {
 impl Skybox {
     pub fn new(paths: &[String; 6]) -> Self {
         let mut skybox = Skybox::default();
-        let mut shader_program = ShaderProgram::new();
-        shader_program
+        skybox.shader_program = ShaderProgram::new();
+        skybox
+            .shader_program
             .vertex_shader("assets/shaders/skybox/skybox.vs.glsl")
             .fragment_shader("assets/shaders/skybox/skybox.fs.glsl")
             .link();
@@ -85,8 +86,8 @@ impl Skybox {
             gl::BindBuffer(gl::ARRAY_BUFFER, skybox.vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (VERTICES.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
-                VERTICES.as_ptr() as *const gl::types::GLvoid,
+                (VERTEX_POSITIONS.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
+                VERTEX_POSITIONS.as_ptr() as *const gl::types::GLvoid,
                 gl::STATIC_DRAW,
             );
             gl::EnableVertexAttribArray(0);
@@ -100,17 +101,17 @@ impl Skybox {
             );
         }
 
-        skybox.projection_matrix_location = shader_program.uniform_location("projection");
-        skybox.view_matrix_location = shader_program.uniform_location("view");
-        skybox.skybox_location = shader_program.uniform_location("skybox");
+        skybox.projection_matrix_location = skybox.shader_program.uniform_location("projection");
+        skybox.view_matrix_location = skybox.shader_program.uniform_location("view");
+        skybox.skybox_location = skybox.shader_program.uniform_location("skybox");
         skybox.texture = Texture::cubemap_from_files(paths);
         skybox
     }
 
-    pub fn render(&self, projection_matrix: &Matrix4<f32>, view_matrix: &Matrix4<f32>) {
+    pub fn render(&self, projection_matrix: &glm::Mat4, view_matrix: &glm::Mat4) {
         self.shader_program.activate();
 
-        let view_matrix = glm::mat3_to_mat4(&glm::mat4_to_mat3(&glm::convert(*view_matrix)));
+        let view_matrix = glm::mat3_to_mat4(&glm::mat4_to_mat3(&*view_matrix));
 
         unsafe {
             gl::BindVertexArray(self.vao);
@@ -121,16 +122,15 @@ impl Skybox {
                 self.projection_matrix_location,
                 1,
                 gl::FALSE,
-                (*projection_matrix).as_slice().as_ptr(),
+                projection_matrix.as_ptr(),
             );
+
             gl::UniformMatrix4fv(
                 self.view_matrix_location,
                 1,
                 gl::FALSE,
-                view_matrix.as_slice().as_ptr(),
+                view_matrix.as_ptr(),
             );
-
-            gl::BindVertexArray(self.vao);
 
             self.texture.bind(0);
             gl::Uniform1i(self.skybox_location, 0);

@@ -1,4 +1,5 @@
 use nalgebra::{Isometry3, Point3, Vector3};
+use nalgebra_glm as glm;
 
 pub enum CameraDirection {
     Forward,
@@ -42,9 +43,9 @@ impl Camera {
         camera
     }
 
-    pub fn view_matrix(&self) -> Isometry3<f32> {
+    pub fn view_matrix(&self) -> glm::Mat4 {
         let target = self.position + self.front;
-        Isometry3::look_at_lh(&self.position, &target, &self.up)
+        glm::convert(Isometry3::look_at_lh(&self.position, &target, &self.up))
     }
 
     pub fn translate(&mut self, direction: CameraDirection, delta_time: f32) {
