@@ -76,9 +76,6 @@ impl State for MainState {
             println!("Uploading model: {}", model.name);
             let mesh = &model.mesh;
 
-            let data = Vec::new();
-            let indices = Vec::new();
-
             for i in &mesh.indices {
                 let i = *i as usize;
                 // pos = [x; y; z]
