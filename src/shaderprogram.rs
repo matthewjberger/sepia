@@ -17,38 +17,52 @@ impl ShaderProgram {
         }
     }
 
-    fn attach(&mut self, kind: ShaderKind, path: &str) -> &mut Self {
-        let mut shader = Shader::new(kind);
-        shader.load_file(path);
-        unsafe {
-            gl::AttachShader(self.id, shader.id);
-        }
-        self.shader_ids.push(shader.id);
-        self
+    pub fn vertex_shader_file(&mut self, path: &str) -> &mut Self {
+        self.attach_shader_file(ShaderKind::Vertex, path)
     }
 
-    pub fn vertex_shader(&mut self, path: &str) -> &mut Self {
-        self.attach(ShaderKind::Vertex, path)
+    pub fn vertex_shader_source(&mut self, source: &str) -> &mut Self {
+        self.attach_shader_source(ShaderKind::Vertex, source)
     }
 
-    pub fn geometry_shader(&mut self, path: &str) -> &mut Self {
-        self.attach(ShaderKind::Geometry, path)
+    pub fn geometry_shader_file(&mut self, path: &str) -> &mut Self {
+        self.attach_shader_file(ShaderKind::Geometry, path)
     }
 
-    pub fn tessellation_control_shader(&mut self, path: &str) -> &mut Self {
-        self.attach(ShaderKind::TessellationControl, path)
+    pub fn geometry_shader_source(&mut self, source: &str) -> &mut Self {
+        self.attach_shader_source(ShaderKind::Geometry, source)
     }
 
-    pub fn tessellation_evaluation_shader(&mut self, path: &str) -> &mut Self {
-        self.attach(ShaderKind::TessellationEvaluation, path)
+    pub fn tessellation_control_shader_file(&mut self, path: &str) -> &mut Self {
+        self.attach_shader_file(ShaderKind::TessellationControl, path)
     }
 
-    pub fn compute_shader(&mut self, path: &str) -> &mut Self {
-        self.attach(ShaderKind::Compute, path)
+    pub fn tessellation_control_shader_source(&mut self, source: &str) -> &mut Self {
+        self.attach_shader_source(ShaderKind::TessellationControl, source)
     }
 
-    pub fn fragment_shader(&mut self, path: &str) -> &mut Self {
-        self.attach(ShaderKind::Fragment, path)
+    pub fn tessellation_evaluation_shader_file(&mut self, path: &str) -> &mut Self {
+        self.attach_shader_file(ShaderKind::TessellationEvaluation, path)
+    }
+
+    pub fn tessellation_evaluation_shader_source(&mut self, source: &str) -> &mut Self {
+        self.attach_shader_source(ShaderKind::TessellationEvaluation, source)
+    }
+
+    pub fn compute_shader_file(&mut self, path: &str) -> &mut Self {
+        self.attach_shader_file(ShaderKind::Compute, path)
+    }
+
+    pub fn compute_shader_source(&mut self, source: &str) -> &mut Self {
+        self.attach_shader_source(ShaderKind::Compute, source)
+    }
+
+    pub fn fragment_shader_file(&mut self, path: &str) -> &mut Self {
+        self.attach_shader_file(ShaderKind::Fragment, path)
+    }
+
+    pub fn fragment_shader_source(&mut self, source: &str) -> &mut Self {
+        self.attach_shader_source(ShaderKind::Fragment, source)
     }
 
     pub fn link(&mut self) {
@@ -76,5 +90,34 @@ impl ShaderProgram {
         unsafe {
             gl::DeleteProgram(self.id);
         }
+    }
+
+    // TODO: Add helpers for setting uniforms
+    // Set floats
+    // Vec2
+    // Vec3
+    // Vec4
+    // 4x4 Matrices
+    // Set integers
+    // Get attribute location
+
+    fn attach_shader_file(&mut self, kind: ShaderKind, path: &str) -> &mut Self {
+        let mut shader = Shader::new(kind);
+        shader.load_file(path);
+        self.attach(&shader)
+    }
+
+    fn attach_shader_source(&mut self, kind: ShaderKind, source: &str) -> &mut Self {
+        let shader = Shader::new(kind);
+        shader.load(source);
+        self.attach(&shader)
+    }
+
+    fn attach(&mut self, shader: &Shader) -> &mut Self {
+        unsafe {
+            gl::AttachShader(self.id, shader.id);
+        }
+        self.shader_ids.push(shader.id);
+        self
     }
 }

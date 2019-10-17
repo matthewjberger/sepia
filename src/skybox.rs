@@ -75,8 +75,8 @@ impl Skybox {
         skybox.shader_program = ShaderProgram::new();
         skybox
             .shader_program
-            .vertex_shader("assets/shaders/skybox/skybox.vs.glsl")
-            .fragment_shader("assets/shaders/skybox/skybox.fs.glsl")
+            .vertex_shader_file("assets/shaders/skybox/skybox.vs.glsl")
+            .fragment_shader_file("assets/shaders/skybox/skybox.fs.glsl")
             .link();
 
         skybox.vao = VertexArrayObject::new();

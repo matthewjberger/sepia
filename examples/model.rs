@@ -3,7 +3,6 @@ use nalgebra as na;
 use nalgebra_glm as glm;
 use sepia::app::*;
 use sepia::camera::*;
-use sepia::shader::*;
 use sepia::shaderprogram::*;
 use sepia::skybox::*;
 use sepia::texture::*;
@@ -66,8 +65,8 @@ impl State for MainState {
         self.texture = Texture::from_file("assets/textures/blue.jpg");
         self.shader_program = ShaderProgram::new();
         self.shader_program
-            .vertex_shader("assets/shaders/model/model.vs.glsl")
-            .fragment_shader("assets/shaders/model/model.fs.glsl")
+            .vertex_shader_file("assets/shaders/model/model.vs.glsl")
+            .fragment_shader_file("assets/shaders/model/model.fs.glsl")
             .link();
 
         let (models, _) =

@@ -27,8 +27,8 @@ impl State for MainState {
         self.texture = Texture::from_file("assets/textures/blue.jpg");
         self.shader_program = ShaderProgram::new();
         self.shader_program
-            .vertex_shader("assets/shaders/texture/texture.vs.glsl")
-            .fragment_shader("assets/shaders/texture/texture.fs.glsl")
+            .vertex_shader_file("assets/shaders/texture/texture.vs.glsl")
+            .fragment_shader_file("assets/shaders/texture/texture.fs.glsl")
             .link();
 
         self.vao = VertexArrayObject::new();

@@ -73,8 +73,8 @@ impl State for MainState {
     fn initialize(&mut self) {
         self.shader_program = ShaderProgram::new();
         self.shader_program
-            .vertex_shader("assets/shaders/spinny-cube/spinny-cube.vs.glsl")
-            .fragment_shader("assets/shaders/spinny-cube/spinny-cube.fs.glsl")
+            .vertex_shader_file("assets/shaders/spinny-cube/spinny-cube.vs.glsl")
+            .fragment_shader_file("assets/shaders/spinny-cube/spinny-cube.fs.glsl")
             .link();
 
         self.vao = VertexArrayObject::new();
