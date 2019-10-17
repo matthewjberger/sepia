@@ -5,7 +5,6 @@ use sepia::buffer::*;
 use sepia::shader::*;
 use sepia::texture::*;
 use sepia::vao::*;
-use std::{mem, ptr};
 
 #[rustfmt::skip]
 const VERTICES: &[GLfloat; 15] =
@@ -36,23 +35,8 @@ impl State for MainState {
         self.vbo = Buffer::new();
         self.vbo.add_data(VERTICES);
         self.vbo.upload(&self.vao, DrawingHint::StaticDraw);
-
-        let data_length = (5 * mem::size_of::<GLfloat>()) as i32;
-
-        unsafe {
-            gl::EnableVertexAttribArray(0);
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, data_length, ptr::null());
-
-            gl::EnableVertexAttribArray(1);
-            gl::VertexAttribPointer(
-                1,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                data_length,
-                (3 * mem::size_of::<GLfloat>()) as *const GLvoid,
-            );
-        }
+        self.vao.configure_attribute(0, 3, 5, 0);
+        self.vao.configure_attribute(1, 2, 5, 3);
     }
 
     fn handle_events(&mut self, state_data: &mut StateData, event: &glfw::WindowEvent) {
