@@ -1,8 +1,10 @@
 use gl::types::*;
 use glfw::{Action, Key};
 use sepia::app::*;
+use sepia::buffer::*;
 use sepia::shader::*;
 use sepia::texture::*;
+use sepia::vao::*;
 use std::{mem, ptr};
 
 #[rustfmt::skip]
@@ -15,8 +17,8 @@ const VERTICES: &[GLfloat; 15] =
 
 #[derive(Default)]
 struct MainState {
-    vao: u32,
-    vbo: u32,
+    vao: VertexArrayObject,
+    vbo: Buffer,
     shader_program: ShaderProgram,
     texture: Texture,
 }
@@ -30,21 +32,14 @@ impl State for MainState {
             .fragment_shader("assets/shaders/texture/texture.fs.glsl")
             .link();
 
+        self.vao = VertexArrayObject::new();
+        self.vbo = Buffer::new();
+        self.vbo.add_data(VERTICES);
+        self.vbo.upload(&self.vao, DrawingHint::StaticDraw);
+
         let data_length = (5 * mem::size_of::<GLfloat>()) as i32;
 
         unsafe {
-            gl::GenVertexArrays(1, &mut self.vao);
-            gl::BindVertexArray(self.vao);
-
-            gl::GenBuffers(1, &mut self.vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (VERTICES.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
-                VERTICES.as_ptr() as *const gl::types::GLvoid,
-                gl::STATIC_DRAW,
-            );
-
             gl::EnableVertexAttribArray(0);
             gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, data_length, ptr::null());
 
@@ -72,8 +67,8 @@ impl State for MainState {
     fn render(&mut self, _: &mut StateData) {
         self.shader_program.activate();
         self.texture.bind(0);
+        self.vao.bind();
         unsafe {
-            gl::BindVertexArray(self.vao);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
     }

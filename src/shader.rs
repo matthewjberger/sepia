@@ -34,7 +34,7 @@ impl Shader {
         self.load(&text);
     }
 
-    pub fn load(&mut self, source: &str) {
+    pub fn load(&self, source: &str) {
         let source_str = CString::new(source.as_bytes()).unwrap();
         unsafe {
             gl::ShaderSource(self.id, 1, &source_str.as_ptr(), ptr::null());
