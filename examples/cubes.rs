@@ -4,7 +4,6 @@ use nalgebra_glm as glm;
 use sepia::app::*;
 use sepia::buffer::*;
 use sepia::camera::*;
-use sepia::shader::*;
 use sepia::shaderprogram::*;
 use sepia::vao::*;
 
