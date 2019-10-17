@@ -30,16 +30,18 @@ pub struct Buffer {
     id: GLuint,
     kind: BufferKind,
     data: Vec<GLfloat>,
+    pub len: u32,
 }
 
 impl Buffer {
-    pub fn new() -> Self {
+    pub fn new(kind: BufferKind) -> Self {
         let mut id = 0;
         unsafe {
             gl::GenBuffers(1, &mut id);
         }
         Buffer {
             id,
+            kind,
             ..Default::default()
         }
     }
@@ -59,6 +61,8 @@ impl Buffer {
                 Buffer::map_hint(&hint),
             );
         }
+        self.len = self.data.len() as u32;
+        self.data.clear();
     }
 
     pub fn bind(&self) {

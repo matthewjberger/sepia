@@ -2,46 +2,41 @@ use na::Matrix4;
 use nalgebra as na;
 use nalgebra_glm as glm;
 use sepia::app::*;
+use sepia::buffer::*;
 use sepia::camera::*;
 use sepia::shaderprogram::*;
 use sepia::skybox::*;
 use sepia::texture::*;
-use std::mem;
+use sepia::vao::*;
 use std::path::Path;
-use std::ptr;
 
 const ONES: &[GLfloat; 1] = &[1.0];
 
 #[derive(Default)]
 struct MainState {
     camera: Camera,
-    vao: u32,
-    vbo: u32,
     shader_program: ShaderProgram,
-    data: Vec<GLfloat>,
+    data: Vec<Mesh>,
     texture: Texture,
     skybox: Skybox,
 }
 
-// #[derive(Copy, Clone)]
-// struct Vertex {
-//     position: [f32; 3],
-//     normal: [f32; 3],
-//     color_diffuse: [f32; 3],
-//     color_specular: [f32; 4],
-// }
+#[derive(Default)]
+pub struct Mesh {
+    vao: VertexArrayObject,
+    vbo: Buffer,
+    ebo: Buffer,
+}
 
-// struct Mesh {
-//     vao: u32,
-//     vbo: u32,
-//     ibo: u32,
-// }
-// type Model = Vec<Mesh>;
-
-// impl Model {
-//     fn load_file(path: &str) -> Self {
-//     }
-// }
+impl Mesh {
+    fn new() -> Mesh {
+        Mesh {
+            vao: VertexArrayObject::new(),
+            vbo: Buffer::new(BufferKind::Array),
+            ebo: Buffer::new(BufferKind::Element),
+        }
+    }
+}
 
 impl State for MainState {
     fn initialize(&mut self) {
@@ -62,7 +57,7 @@ impl State for MainState {
             "assets/textures/skyboxes/mountains/front.tga".to_string(),
         ]);
 
-        self.texture = Texture::from_file("assets/textures/blue.jpg");
+        // self.texture = Texture::from_file("assets/textures/blue.jpg");
         self.shader_program = ShaderProgram::new();
         self.shader_program
             .vertex_shader_file("assets/shaders/model/model.vs.glsl")
@@ -73,58 +68,53 @@ impl State for MainState {
             tobj::load_obj(&Path::new("assets/models/wolf/Wolf_One_obj.obj")).unwrap();
         self.data = Vec::new();
         for model in &models {
-            println!("Uploading model: {}", model.name);
             let mesh = &model.mesh;
-
-            for i in &mesh.indices {
-                let i = *i as usize;
+            let mut mesh_data = Mesh::new();
+            for i in 0..mesh.positions.len() / 3 {
                 // pos = [x; y; z]
-                self.data.push(mesh.positions[i * 3]);
-                self.data.push(mesh.positions[i * 3 + 1]);
-                self.data.push(mesh.positions[i * 3 + 2]);
+                mesh_data.vbo.add_data(&[
+                    mesh.positions[i * 3] as GLfloat,
+                    mesh.positions[i * 3 + 1] as GLfloat,
+                    mesh.positions[i * 3 + 2] as GLfloat,
+                ]);
 
-                if !mesh.normals.is_empty() {
-                    // normal = [x; y; z]
-                    // self.data.push(mesh.normals[i * 3]);
-                    // self.data.push(mesh.normals[i * 3 + 1]);
-                    // self.data.push(mesh.normals[i * 3 + 2]);
-                }
+                // normal = [x; y; z]
+                // if !mesh.normals.is_empty() {
+                //     mesh_data.vbo.add_data(&[
+                //         mesh.normals[i * 3] as GLfloat,
+                //         mesh.normals[i * 3 + 1] as GLfloat,
+                //         mesh.normals[i * 3 + 2] as GLfloat,
+                //     ]);
+                // }
 
-                if !mesh.texcoords.is_empty() {
-                    // texcoord = [u; v];
-                    self.data.push(mesh.texcoords[i * 2]);
-                    self.data.push(mesh.texcoords[i * 2 + 1]);
-                }
+                // texcoord = [u; v];
+                // if !mesh.texcoords.is_empty() {
+                //     mesh_data.vbo.add_data(&[
+                //         mesh.texcoords[i * 2] as GLfloat,
+                //         mesh.texcoords[i * 2 + 1] as GLfloat,
+                //     ]);
+                // }
             }
-        }
+            mesh_data
+                .vbo
+                .upload(&mesh_data.vao, DrawingHint::StaticDraw);
 
-        let data_length = (5 * mem::size_of::<GLfloat>()) as i32;
-
-        unsafe {
-            gl::GenVertexArrays(1, &mut self.vao);
-            gl::BindVertexArray(self.vao);
-
-            gl::GenBuffers(1, &mut self.vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (self.data.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
-                self.data.as_ptr() as *const gl::types::GLvoid,
-                gl::STATIC_DRAW,
+            mesh_data.ebo.add_data(
+                mesh.indices
+                    .iter()
+                    .map(|x| *x as GLfloat)
+                    .collect::<Vec<f32>>()
+                    .as_slice(),
             );
+            mesh_data
+                .ebo
+                .upload(&mesh_data.vao, DrawingHint::StaticDraw);
 
-            gl::EnableVertexAttribArray(0);
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, data_length, ptr::null());
-
-            gl::EnableVertexAttribArray(1);
-            gl::VertexAttribPointer(
-                1,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                data_length,
-                (3 * mem::size_of::<GLfloat>()) as *const GLvoid,
-            );
+            mesh_data.vao.configure_attribute(0, 3, 3, 0);
+            // mesh_data.vao.configure_attribute(1, 2, 5, 3);
+            // mesh_data.vao.configure_attribute(1, 3, 8, 3);
+            // mesh_data.vao.configure_attribute(2, 2, 8, 6);
+            self.data.push(mesh_data);
         }
     }
 
@@ -180,14 +170,6 @@ impl State for MainState {
 
         self.skybox.render(&projection, &self.camera.view_matrix());
 
-        unsafe {
-            gl::Enable(gl::CULL_FACE);
-            gl::FrontFace(gl::CCW);
-
-            gl::Enable(gl::DEPTH_TEST);
-            gl::DepthFunc(gl::LEQUAL);
-        }
-
         let modelview = self.camera.view_matrix()
             * Matrix4::new_rotation(glm::vec3(
                 180_f32.to_radians(),
@@ -196,21 +178,28 @@ impl State for MainState {
             ));
 
         self.shader_program.activate();
-        self.texture.bind(0);
-        let modelview_matrix_location = self.shader_program.uniform_location("modelview_matrix");
-        let projection_matrix_location = self.shader_program.uniform_location("projection_matrix");
+        self.shader_program
+            .set_uniform_matrix4x4("modelview_matrix", modelview.as_slice());
+        self.shader_program
+            .set_uniform_matrix4x4("projection_matrix", projection.as_slice());
 
-        unsafe {
-            gl::ClearBufferfv(gl::DEPTH, 0, ONES as *const f32);
-            gl::BindVertexArray(self.vao);
-            gl::UniformMatrix4fv(
-                projection_matrix_location,
-                1,
-                gl::FALSE,
-                projection.as_ptr(),
-            );
-            gl::UniformMatrix4fv(modelview_matrix_location, 1, gl::FALSE, modelview.as_ptr());
-            gl::DrawArrays(gl::TRIANGLES, 0, self.data.len() as i32);
+        for mesh in self.data.iter() {
+            mesh.vao.bind();
+            // self.texture.bind(0);
+
+            unsafe {
+                gl::Enable(gl::CULL_FACE);
+                gl::FrontFace(gl::CCW);
+                gl::Enable(gl::DEPTH_TEST);
+                gl::DepthFunc(gl::LEQUAL);
+                gl::ClearBufferfv(gl::DEPTH, 0, ONES as *const f32);
+                gl::DrawElements(
+                    gl::TRIANGLES,
+                    mesh.ebo.len as i32,
+                    gl::UNSIGNED_INT,
+                    0 as *const GLvoid,
+                );
+            }
         }
     }
 }

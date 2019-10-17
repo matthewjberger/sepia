@@ -77,7 +77,7 @@ impl Skybox {
             .link();
 
         skybox.vao = VertexArrayObject::new();
-        skybox.vbo = Buffer::new();
+        skybox.vbo = Buffer::new(BufferKind::Array);
         skybox.vbo.add_data(VERTEX_POSITIONS);
         skybox.vbo.upload(&skybox.vao, DrawingHint::StaticDraw);
         skybox.vao.configure_attribute(0, 3, 3, 0);

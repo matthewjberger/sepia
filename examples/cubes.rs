@@ -78,7 +78,7 @@ impl State for MainState {
             .link();
 
         self.vao = VertexArrayObject::new();
-        self.vbo = Buffer::new();
+        self.vbo = Buffer::new(BufferKind::Array);
         self.vbo.add_data(VERTEX_POSITIONS);
         self.vbo.upload(&self.vao, DrawingHint::StaticDraw);
         self.vao.configure_attribute(0, 3, 3, 0);
