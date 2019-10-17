@@ -97,9 +97,24 @@ impl ShaderProgram {
     // Vec2
     // Vec3
     // Vec4
-    // 4x4 Matrices
     // Set integers
     // Get attribute location
+
+    pub fn set_uniform_integer(&self, name: &str, value: i32) {
+        self.activate();
+        let location = self.uniform_location(name);
+        unsafe {
+            gl::Uniform1i(location, value);
+        }
+    }
+
+    pub fn set_uniform_matrix4x4(&self, name: &str, data: &[GLfloat]) {
+        self.activate();
+        let location = self.uniform_location(name);
+        unsafe {
+            gl::UniformMatrix4fv(location, 1, gl::FALSE, data.as_ptr());
+        }
+    }
 
     fn attach_shader_file(&mut self, kind: ShaderKind, path: &str) -> &mut Self {
         let mut shader = Shader::new(kind);

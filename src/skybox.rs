@@ -63,9 +63,6 @@ pub struct Skybox {
     vao: VertexArrayObject,
     vbo: Buffer,
     shader_program: ShaderProgram,
-    projection_matrix_location: i32,
-    view_matrix_location: i32,
-    skybox_location: i32,
     texture: Texture,
 }
 
@@ -84,9 +81,6 @@ impl Skybox {
         skybox.vbo.add_data(VERTEX_POSITIONS);
         skybox.vbo.upload(&skybox.vao, DrawingHint::StaticDraw);
         skybox.vao.configure_attribute(0, 3, 3, 0);
-        skybox.projection_matrix_location = skybox.shader_program.uniform_location("projection");
-        skybox.view_matrix_location = skybox.shader_program.uniform_location("view");
-        skybox.skybox_location = skybox.shader_program.uniform_location("skybox");
         skybox.texture = Texture::cubemap_from_files(paths);
         skybox
     }
@@ -98,28 +92,18 @@ impl Skybox {
         self.vao.bind();
         self.texture.bind(0);
 
+        self.shader_program
+            .set_uniform_matrix4x4("projection", projection_matrix.as_slice());
+
+        self.shader_program
+            .set_uniform_matrix4x4("view", view_matrix.as_slice());
+
+        self.shader_program.set_uniform_integer("skybox", 0);
+
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthFunc(gl::LEQUAL);
-
-            gl::UniformMatrix4fv(
-                self.projection_matrix_location,
-                1,
-                gl::FALSE,
-                projection_matrix.as_ptr(),
-            );
-
-            gl::UniformMatrix4fv(
-                self.view_matrix_location,
-                1,
-                gl::FALSE,
-                view_matrix.as_ptr(),
-            );
-
-            gl::Uniform1i(self.skybox_location, 0);
-
             gl::DrawArrays(gl::TRIANGLES, 0, 36);
-
             gl::DepthFunc(gl::LESS);
         }
     }

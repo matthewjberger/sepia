@@ -143,18 +143,13 @@ impl State for MainState {
         );
         self.vao.bind();
         self.shader_program.activate();
-        let modelview_matrix_location = self.shader_program.uniform_location("modelview_matrix");
-        let projection_matrix_location = self.shader_program.uniform_location("projection_matrix");
+        self.shader_program
+            .set_uniform_matrix4x4("projection_matrix", projection.as_slice());
 
         unsafe {
             gl::ClearBufferfv(gl::DEPTH, 0, ONES as *const f32);
-            gl::UniformMatrix4fv(
-                projection_matrix_location,
-                1,
-                gl::FALSE,
-                projection.as_ptr(),
-            );
         }
+
         for cube_id in 0..24 {
             let factor: f32 = cube_id as f32 + (state_data.current_time as f32 * 0.3);
             let modelview = self.camera.view_matrix()
@@ -170,8 +165,10 @@ impl State for MainState {
                     (1.3 * factor).sin() * (1.5 * factor).cos() * 2.0,
                 ));
 
+            self.shader_program
+                .set_uniform_matrix4x4("modelview_matrix", modelview.as_slice());
+
             unsafe {
-                gl::UniformMatrix4fv(modelview_matrix_location, 1, gl::FALSE, modelview.as_ptr());
                 gl::DrawArrays(gl::TRIANGLES, 0, 36);
             }
         }
@@ -180,8 +177,10 @@ impl State for MainState {
             * Matrix4::new_translation(&Vector3::new(0.0, 10.0, 0.0))
             * Matrix4::new_nonuniform_scaling(&Vector3::new(100.0, 0.2, 100.0));
 
+        self.shader_program
+            .set_uniform_matrix4x4("modelview_matrix", modelview.as_slice());
+
         unsafe {
-            gl::UniformMatrix4fv(modelview_matrix_location, 1, gl::FALSE, modelview.as_ptr());
             gl::DrawArrays(gl::TRIANGLES, 0, 36);
         }
     }
