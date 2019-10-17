@@ -1,8 +1,8 @@
+use crate::buffer::*;
 use crate::shader::*;
 use crate::texture::*;
-use nalgebra::Matrix4;
+use crate::vao::*;
 use nalgebra_glm as glm;
-use std::{mem, ptr};
 
 // TODO: Make common primitive geometry file (with indices)
 #[rustfmt::skip]
@@ -59,8 +59,8 @@ const VERTEX_POSITIONS: &[GLfloat; 108] =
 
 #[derive(Default)]
 pub struct Skybox {
-    vao: u32,
-    vbo: u32,
+    vao: VertexArrayObject,
+    vbo: Buffer,
     shader_program: ShaderProgram,
     projection_matrix_location: i32,
     view_matrix_location: i32,
@@ -78,29 +78,11 @@ impl Skybox {
             .fragment_shader("assets/shaders/skybox/skybox.fs.glsl")
             .link();
 
-        unsafe {
-            gl::GenVertexArrays(1, &mut skybox.vao);
-            gl::BindVertexArray(skybox.vao);
-
-            gl::GenBuffers(1, &mut skybox.vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, skybox.vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (VERTEX_POSITIONS.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
-                VERTEX_POSITIONS.as_ptr() as *const gl::types::GLvoid,
-                gl::STATIC_DRAW,
-            );
-            gl::EnableVertexAttribArray(0);
-            gl::VertexAttribPointer(
-                0,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                3 * mem::size_of::<GLfloat>() as i32,
-                ptr::null(),
-            );
-        }
-
+        skybox.vao = VertexArrayObject::new();
+        skybox.vbo = Buffer::new();
+        skybox.vbo.add_data(VERTEX_POSITIONS);
+        skybox.vbo.upload(&skybox.vao, DrawingHint::StaticDraw);
+        skybox.vao.configure_attribute(0, 3, 3, 0);
         skybox.projection_matrix_location = skybox.shader_program.uniform_location("projection");
         skybox.view_matrix_location = skybox.shader_program.uniform_location("view");
         skybox.skybox_location = skybox.shader_program.uniform_location("skybox");
@@ -112,9 +94,10 @@ impl Skybox {
         self.shader_program.activate();
 
         let view_matrix = glm::mat3_to_mat4(&glm::mat4_to_mat3(&*view_matrix));
+        self.vao.bind();
+        self.texture.bind(0);
 
         unsafe {
-            gl::BindVertexArray(self.vao);
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthFunc(gl::LEQUAL);
 
@@ -132,7 +115,6 @@ impl Skybox {
                 view_matrix.as_ptr(),
             );
 
-            self.texture.bind(0);
             gl::Uniform1i(self.skybox_location, 0);
 
             gl::DrawArrays(gl::TRIANGLES, 0, 36);

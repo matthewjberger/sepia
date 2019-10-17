@@ -1,5 +1,5 @@
 use gl::types::*;
-use std::{mem, ptr};
+use std::mem;
 
 #[derive(Default)]
 pub struct VertexArrayObject {

@@ -2,9 +2,10 @@ use na::{Matrix4, Vector3};
 use nalgebra as na;
 use nalgebra_glm as glm;
 use sepia::app::*;
+use sepia::buffer::*;
 use sepia::camera::*;
 use sepia::shader::*;
-use std::{mem, ptr};
+use sepia::vao::*;
 
 const ONES: &[GLfloat; 1] = &[1.0];
 
@@ -62,8 +63,8 @@ const VERTEX_POSITIONS: &[GLfloat; 108] =
 
 #[derive(Default)]
 struct MainState {
-    vao: u32,
-    vbo: u32,
+    vao: VertexArrayObject,
+    vbo: Buffer,
     shader_program: ShaderProgram,
     camera: Camera,
 }
@@ -76,21 +77,13 @@ impl State for MainState {
             .fragment_shader("assets/shaders/spinny-cube/spinny-cube.fs.glsl")
             .link();
 
+        self.vao = VertexArrayObject::new();
+        self.vbo = Buffer::new();
+        self.vbo.add_data(VERTEX_POSITIONS);
+        self.vbo.upload(&self.vao, DrawingHint::StaticDraw);
+        self.vao.configure_attribute(0, 3, 3, 0);
+
         unsafe {
-            gl::GenVertexArrays(1, &mut self.vao);
-            gl::BindVertexArray(self.vao);
-
-            gl::GenBuffers(1, &mut self.vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (VERTEX_POSITIONS.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
-                VERTEX_POSITIONS.as_ptr() as *const gl::types::GLvoid,
-                gl::STATIC_DRAW,
-            );
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 0, ptr::null());
-            gl::EnableVertexAttribArray(0);
-
             gl::Enable(gl::CULL_FACE);
             gl::FrontFace(gl::CW);
 
@@ -148,6 +141,7 @@ impl State for MainState {
             0.1_f32,
             1000_f32,
         );
+        self.vao.bind();
         self.shader_program.activate();
         let modelview_matrix_location = self.shader_program.uniform_location("modelview_matrix");
         let projection_matrix_location = self.shader_program.uniform_location("projection_matrix");

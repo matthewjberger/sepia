@@ -1,6 +1,6 @@
 use crate::vao::*;
 use gl::types::*;
-use std::{mem, ptr};
+use std::mem;
 
 pub enum DrawingHint {
     StreamDraw,

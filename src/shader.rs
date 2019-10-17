@@ -43,10 +43,6 @@ impl Shader {
         self.check_compilation();
     }
 
-    fn kind(&self) -> u32 {
-        Shader::map_type(&self.kind)
-    }
-
     fn check_compilation(&self) {
         // let mut info_log = Vec::with_capacity(1024);
         // let mut success = gl::FALSE as GLint;
