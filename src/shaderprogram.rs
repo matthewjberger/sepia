@@ -71,10 +71,10 @@ impl ShaderProgram {
         let name: CString = CString::new(name.as_bytes()).unwrap();
         unsafe { gl::GetUniformLocation(self.id, name.as_ptr()) }
     }
-}
 
-impl Drop for ShaderProgram {
-    fn drop(&mut self) {
-        unsafe { gl::DeleteProgram(self.id) }
+    pub fn free(&self) {
+        unsafe {
+            gl::DeleteProgram(self.id);
+        }
     }
 }

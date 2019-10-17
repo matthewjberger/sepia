@@ -67,6 +67,12 @@ impl Buffer {
         }
     }
 
+    pub fn free(&self) {
+        unsafe {
+            gl::DeleteBuffers(1, &self.id as *const u32);
+        }
+    }
+
     fn kind(&self) -> GLuint {
         Buffer::map_type(&self.kind)
     }
@@ -92,9 +98,3 @@ impl Buffer {
         }
     }
 }
-
-// impl Drop for Buffer {
-//     fn drop(&mut self) {
-//         unsafe { gl::DeleteBuffers(1, &self.id as *const u32) }
-//     }
-// }

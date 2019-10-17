@@ -41,6 +41,12 @@ impl Texture {
         }
     }
 
+    pub fn free(&self) {
+        unsafe {
+            gl::DeleteTextures(1, &self.id);
+        }
+    }
+
     fn create(&mut self) {
         unsafe {
             gl::GenTextures(1, &mut self.id);
@@ -83,11 +89,3 @@ impl Texture {
         img
     }
 }
-
-// impl Drop for Texture {
-//     fn drop(&mut self) {
-//         unsafe {
-//             gl::DeleteTextures(1, &self.id);
-//         }
-//     }
-// }
