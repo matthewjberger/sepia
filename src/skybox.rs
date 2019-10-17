@@ -1,5 +1,6 @@
 use crate::buffer::*;
 use crate::shader::*;
+use crate::shaderprogram::*;
 use crate::texture::*;
 use crate::vao::*;
 use nalgebra_glm as glm;

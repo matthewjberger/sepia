@@ -5,6 +5,7 @@ use sepia::app::*;
 use sepia::buffer::*;
 use sepia::camera::*;
 use sepia::shader::*;
+use sepia::shaderprogram::*;
 use sepia::vao::*;
 
 const ONES: &[GLfloat; 1] = &[1.0];

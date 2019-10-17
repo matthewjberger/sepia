@@ -2,7 +2,7 @@ use gl::types::*;
 use glfw::{Action, Key};
 use sepia::app::*;
 use sepia::buffer::*;
-use sepia::shader::*;
+use sepia::shaderprogram::*;
 use sepia::texture::*;
 use sepia::vao::*;
 
