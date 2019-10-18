@@ -30,8 +30,8 @@ impl Model {
                         mesh_data.normals[index * 3 + 2],
                     ),
                     glm::vec2(
-                        mesh_data.normals[index * 2],
-                        mesh_data.normals[index * 2 + 1],
+                        mesh_data.texcoords[index * 2],
+                        mesh_data.texcoords[index * 2 + 1],
                     ),
                 );
                 vertices.push(vertex);
