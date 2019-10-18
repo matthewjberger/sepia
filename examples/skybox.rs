@@ -16,8 +16,8 @@ impl State for MainState {
         self.skybox = Skybox::new(&[
             "assets/textures/skyboxes/mountains/right.tga".to_string(),
             "assets/textures/skyboxes/mountains/left.tga".to_string(),
-            "assets/textures/skyboxes/mountains/bottom.tga".to_string(),
             "assets/textures/skyboxes/mountains/top.tga".to_string(),
+            "assets/textures/skyboxes/mountains/bottom.tga".to_string(),
             "assets/textures/skyboxes/mountains/back.tga".to_string(),
             "assets/textures/skyboxes/mountains/front.tga".to_string(),
         ]);

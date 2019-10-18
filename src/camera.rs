@@ -32,12 +32,12 @@ impl Camera {
         let mut camera = Camera {
             position: Point3::new(0.0, 0.0, 10.0),
             right: Vector3::new(0.0, 0.0, 0.0),
-            front: Vector3::new(0.0, 0.0, 1.0),
-            up: Vector3::new(0.0, 1.0, 0.0),
-            world_up: Vector3::new(0.0, 1.0, 0.0),
+            front: Vector3::new(0.0, 0.0, -1.0),
+            up: Vector3::new(0.0, 0.0, 0.0),
+            world_up: Vector3::new(0.0, -1.0, 0.0),
             speed: 10.0,
             sensitivity: 0.05,
-            yaw: 90.0,
+            yaw: -90.0,
             pitch: 0.0,
         };
         camera.calculate_vectors();
@@ -46,31 +46,31 @@ impl Camera {
 
     pub fn view_matrix(&self) -> glm::Mat4 {
         let target = self.position + self.front;
-        glm::convert(Isometry3::look_at_lh(&self.position, &target, &self.up))
+        glm::convert(Isometry3::look_at_rh(&self.position, &target, &self.up))
     }
 
     pub fn translate(&mut self, direction: CameraDirection, delta_time: f32) {
         let velocity = self.speed * delta_time;
         match direction {
-            CameraDirection::Forward => self.position -= velocity * self.front,
-            CameraDirection::Backward => self.position += velocity * self.front,
-            CameraDirection::Left => self.position -= velocity * self.right,
-            CameraDirection::Right => self.position += velocity * self.right,
+            CameraDirection::Forward => self.position += self.front * velocity,
+            CameraDirection::Backward => self.position -= self.front * velocity,
+            CameraDirection::Left => self.position += self.right * velocity,
+            CameraDirection::Right => self.position -= self.right * velocity,
         };
     }
 
     pub fn process_mouse_movement(&mut self, x_offset: f32, y_offset: f32) {
         let (x_offset, y_offset) = (x_offset * self.sensitivity, y_offset * self.sensitivity);
 
-        self.yaw += x_offset;
+        self.yaw -= x_offset;
         self.pitch += y_offset;
 
-        let pitch_threshold = 89.0;
-        if self.pitch > pitch_threshold {
-            self.pitch = pitch_threshold
-        } else if self.pitch < -pitch_threshold {
-            self.pitch = -pitch_threshold
-        }
+        // let pitch_threshold = 89.0;
+        // if self.pitch > pitch_threshold {
+        //     self.pitch = pitch_threshold
+        // } else if self.pitch < -pitch_threshold {
+        //     self.pitch = -pitch_threshold
+        // }
 
         self.calculate_vectors();
     }

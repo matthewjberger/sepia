@@ -15,7 +15,9 @@ impl Texture {
         texture.target = gl::TEXTURE_2D;
         texture.bind(0);
         texture.set_texture_defaults();
-        texture.img.push(Texture::load_image(path, texture.target));
+        texture
+            .img
+            .push(Texture::load_image(path, texture.target, true));
         texture
     }
 
@@ -29,6 +31,7 @@ impl Texture {
             texture.img.push(Texture::load_image(
                 path,
                 gl::TEXTURE_CUBE_MAP_POSITIVE_X + offset as u32,
+                false,
             ));
         }
         texture
@@ -66,12 +69,14 @@ impl Texture {
         }
     }
 
-    fn load_image(path: &str, target: u32) -> DynamicImage {
+    fn load_image(path: &str, target: u32, flipv: bool) -> DynamicImage {
         let mut img = image::open(path).unwrap();
         // TODO: Check the image to set this
         let pixel_format = gl::RGB;
         let (width, height) = img.dimensions();
-        img = img.flipv();
+        if flipv {
+            img = img.flipv();
+        }
         unsafe {
             gl::TexImage2D(
                 target,
