@@ -46,11 +46,6 @@ impl Model {
             // TODO: Push other textures and add error handling
             // TODO: Use a texture cache
 
-            println!(
-                "{}",
-                diffuse_texture_path.as_path().as_os_str().to_str().unwrap()
-            );
-
             let texture =
                 Texture::from_file(diffuse_texture_path.as_path().as_os_str().to_str().unwrap());
             textures.push(texture);
