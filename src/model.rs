@@ -61,9 +61,8 @@ impl Model {
     }
 
     pub fn render(&self) {
-        // for mesh in self.meshes.iter() {
-        //     mesh.render();
-        // }
-        self.meshes[1].render();
+        for mesh in self.meshes.iter() {
+            mesh.render();
+        }
     }
 }
