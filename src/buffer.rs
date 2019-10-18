@@ -1,6 +1,6 @@
 use crate::vao::*;
 use gl::types::*;
-use std::mem;
+use std::{mem, slice};
 
 pub enum DrawingHint {
     StreamDraw,
@@ -29,8 +29,7 @@ impl Default for BufferKind {
 pub struct Buffer {
     id: GLuint,
     kind: BufferKind,
-    data: Vec<GLfloat>,
-    pub len: u32,
+    data: Vec<u8>,
 }
 
 impl Buffer {
@@ -46,8 +45,10 @@ impl Buffer {
         }
     }
 
-    pub fn add_data(&mut self, data: &[GLfloat]) {
-        self.data.extend(data.iter().clone());
+    pub fn add_data<T>(&mut self, data: &[T]) {
+        let len = mem::size_of::<T>() * data.len();
+        let byte_slice = unsafe { slice::from_raw_parts(data.as_ptr() as *const u8, len) };
+        self.data.extend(byte_slice.iter().clone());
     }
 
     pub fn upload(&mut self, vao: &VertexArrayObject, hint: DrawingHint) {
@@ -56,12 +57,11 @@ impl Buffer {
         unsafe {
             gl::BufferData(
                 self.kind(),
-                (self.data.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
+                (self.data.len() * mem::size_of::<u8>()) as GLsizeiptr,
                 self.data.as_ptr() as *const GLvoid,
                 Buffer::map_hint(&hint),
             );
         }
-        self.len = self.data.len() as u32;
         self.data.clear();
     }
 
@@ -77,6 +77,14 @@ impl Buffer {
         }
     }
 
+    pub fn type_size(&self) -> usize {
+        Buffer::map_type_size(&self.kind)
+    }
+
+    pub fn type_representation(&self) -> u32 {
+        Buffer::map_type_representation(&self.kind)
+    }
+
     fn kind(&self) -> GLuint {
         Buffer::map_type(&self.kind)
     }
@@ -85,6 +93,20 @@ impl Buffer {
         match buffer_type {
             BufferKind::Array => gl::ARRAY_BUFFER,
             BufferKind::Element => gl::ELEMENT_ARRAY_BUFFER,
+        }
+    }
+
+    fn map_type_size(buffer_type: &BufferKind) -> usize {
+        match buffer_type {
+            BufferKind::Array => mem::size_of::<GLfloat>(),
+            BufferKind::Element => mem::size_of::<GLuint>(),
+        }
+    }
+
+    fn map_type_representation(buffer_type: &BufferKind) -> u32 {
+        match buffer_type {
+            BufferKind::Array => gl::FLOAT,
+            BufferKind::Element => gl::UNSIGNED_INT,
         }
     }
 

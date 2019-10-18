@@ -8,18 +8,18 @@ use sepia::vao::*;
 use std::ptr;
 
 #[rustfmt::skip]
-const VERTICES: &[GLfloat; 12] =
+const VERTICES: &[GLfloat; 20] =
     &[
-        0.5,  0.5, 0.0, // 1.0, 1.0, // top right
-        0.5, -0.5, 0.0, // 1.0, 0.0, // bottom right
-       -0.5, -0.5, 0.0, // 0.0, 0.0, // bottom left
-       -0.5,  0.5, 0.0, // 1.0, 1.0  // top left
+       -0.5,  0.5, 0.0, 0.0, 1.0, // top left
+        0.5,  0.5, 0.0, 1.0, 1.0, // top right
+       -0.5, -0.5, 0.0, 0.0, 0.0, // bottom left
+        0.5, -0.5, 0.0, 1.0, 0.0, // bottom right
     ];
 
 #[rustfmt::skip]
-const INDICES: &[GLfloat; 6] = &[
-    0.0, 1.0, 3.0, // first triangle
-    1.0, 2.0, 3.0  // second triangle
+const INDICES: &[GLuint; 6] = &[
+    1, 2, 0, // first triangle
+    2, 1, 3, // second triangle
 ];
 
 #[derive(Default)]
@@ -33,7 +33,7 @@ struct MainState {
 
 impl State for MainState {
     fn initialize(&mut self) {
-        // self.texture = Texture::from_file("assets/textures/blue.jpg");
+        self.texture = Texture::from_file("assets/textures/blue.jpg");
         self.shader_program = ShaderProgram::new();
         self.shader_program
             .vertex_shader_file("assets/shaders/texture/texture.vs.glsl")
@@ -47,9 +47,8 @@ impl State for MainState {
         self.vbo.upload(&self.vao, DrawingHint::StaticDraw);
         self.ebo.add_data(INDICES);
         self.ebo.upload(&self.vao, DrawingHint::StaticDraw);
-        self.vao.configure_attribute(0, 3, 3, 0);
-        // self.vao.configure_attribute(0, 3, 5, 0);
-        // self.vao.configure_attribute(1, 2, 5, 3);
+        self.vao.configure_attribute(0, 3, 5, 0);
+        self.vao.configure_attribute(1, 2, 5, 3);
     }
 
     fn handle_events(&mut self, state_data: &mut StateData, event: &glfw::WindowEvent) {
@@ -63,10 +62,15 @@ impl State for MainState {
 
     fn render(&mut self, _: &mut StateData) {
         self.shader_program.activate();
-        // self.texture.bind(0);
+        self.texture.bind(0);
         self.vao.bind();
         unsafe {
-            gl::DrawElements(gl::TRIANGLES, 6, gl::FLOAT, ptr::null());
+            gl::DrawElements(
+                gl::TRIANGLES,
+                INDICES.len() as i32,
+                self.ebo.type_representation(),
+                ptr::null(),
+            );
         }
     }
 }
