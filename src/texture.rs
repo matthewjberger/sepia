@@ -1,5 +1,5 @@
 use gl::types::GLvoid;
-use image::{DynamicImage, GenericImageView};
+use image::{DynamicImage, DynamicImage::*, GenericImageView};
 
 #[derive(Default)]
 pub struct Texture {
@@ -14,7 +14,8 @@ impl Texture {
         texture.create();
         texture.target = gl::TEXTURE_2D;
         texture.bind(0);
-        texture.set_texture_defaults();
+        texture.set_wrapping_repeat();
+        texture.set_filtering_defaults();
         texture
             .img
             .push(Texture::load_image(path, texture.target, true));
@@ -26,7 +27,8 @@ impl Texture {
         texture.create();
         texture.target = gl::TEXTURE_CUBE_MAP;
         texture.bind(0);
-        texture.set_texture_defaults();
+        texture.set_wrapping_clamp();
+        texture.set_filtering_defaults();
         for (offset, path) in paths.iter().enumerate() {
             texture.img.push(Texture::load_image(
                 path,
@@ -56,13 +58,24 @@ impl Texture {
         }
     }
 
-    fn set_texture_defaults(&mut self) {
+    fn set_wrapping_clamp(&mut self) {
         unsafe {
-            // Default wrapping parameters
             gl::TexParameteri(self.target, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(self.target, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(self.target, gl::TEXTURE_WRAP_R, gl::CLAMP_TO_EDGE as i32);
+        }
+    }
 
+    fn set_wrapping_repeat(&mut self) {
+        unsafe {
+            gl::TexParameteri(self.target, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+            gl::TexParameteri(self.target, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+            gl::TexParameteri(self.target, gl::TEXTURE_WRAP_R, gl::REPEAT as i32);
+        }
+    }
+
+    fn set_filtering_defaults(&mut self) {
+        unsafe {
             // Default filtering options
             gl::TexParameteri(self.target, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TexParameteri(self.target, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
@@ -70,10 +83,15 @@ impl Texture {
     }
 
     fn load_image(path: &str, target: u32, flipv: bool) -> DynamicImage {
-        let mut img = image::open(path).unwrap();
-        // TODO: Check the image to set this
-        let pixel_format = gl::RGB;
-        let (width, height) = img.dimensions();
+        let mut img = image::open(path).expect("Texture failed to load!");
+        let pixel_format = match img {
+            ImageLuma8(_) => gl::RED,
+            ImageLumaA8(_) => gl::RG,
+            ImageRgb8(_) => gl::RGB,
+            ImageRgba8(_) => gl::RGBA,
+            ImageBgr8(_) => gl::BGR,
+            ImageBgra8(_) => gl::BGRA,
+        };
         if flipv {
             img = img.flipv();
         }
@@ -82,8 +100,8 @@ impl Texture {
                 target,
                 0,
                 pixel_format as i32,
-                width as i32,
-                height as i32,
+                img.width() as i32,
+                img.height() as i32,
                 0,
                 pixel_format,
                 gl::UNSIGNED_BYTE,
