@@ -29,12 +29,12 @@ impl State for MainState {
             .link();
         self.model = Model::from_file("assets/models/nanosuit/nanosuit.obj");
         self.skybox = Skybox::new(&[
-            "assets/textures/skyboxes/mountains/right.tga".to_string(),
-            "assets/textures/skyboxes/mountains/left.tga".to_string(),
-            "assets/textures/skyboxes/mountains/top.tga".to_string(),
-            "assets/textures/skyboxes/mountains/bottom.tga".to_string(),
-            "assets/textures/skyboxes/mountains/back.tga".to_string(),
-            "assets/textures/skyboxes/mountains/front.tga".to_string(),
+            "assets/textures/skyboxes/bluemountains/right.jpg".to_string(),
+            "assets/textures/skyboxes/bluemountains/left.jpg".to_string(),
+            "assets/textures/skyboxes/bluemountains/top.jpg".to_string(),
+            "assets/textures/skyboxes/bluemountains/bottom.jpg".to_string(),
+            "assets/textures/skyboxes/bluemountains/back.jpg".to_string(),
+            "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
     }
 

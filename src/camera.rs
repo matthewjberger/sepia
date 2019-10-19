@@ -65,12 +65,12 @@ impl Camera {
         self.yaw -= x_offset;
         self.pitch += y_offset;
 
-        // let pitch_threshold = 89.0;
-        // if self.pitch > pitch_threshold {
-        //     self.pitch = pitch_threshold
-        // } else if self.pitch < -pitch_threshold {
-        //     self.pitch = -pitch_threshold
-        // }
+        let pitch_threshold = 89.0;
+        if self.pitch > pitch_threshold {
+            self.pitch = pitch_threshold
+        } else if self.pitch < -pitch_threshold {
+            self.pitch = -pitch_threshold
+        }
 
         self.calculate_vectors();
     }

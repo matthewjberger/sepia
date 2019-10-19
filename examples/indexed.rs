@@ -33,7 +33,7 @@ struct MainState {
 
 impl State for MainState {
     fn initialize(&mut self) {
-        self.texture = Texture::from_file("assets/textures/blue.jpg");
+        self.texture = Texture::from_file("assets/textures/wood.jpg");
         self.shader_program = ShaderProgram::new();
         self.shader_program
             .vertex_shader_file("assets/shaders/texture/texture.vs.glsl")
