@@ -38,10 +38,7 @@ impl Texture {
         texture.target = gl::TEXTURE_2D;
         texture.bind(0);
         texture.set_wrapping_repeat();
-        unsafe {
-            gl::TexParameteri(texture.target, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-            gl::TexParameteri(texture.target, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-        }
+        texture.set_filtering_defaults();
         texture
             .img
             .push(Texture::load_image(path, texture.target, true));
@@ -54,14 +51,7 @@ impl Texture {
         texture.target = gl::TEXTURE_CUBE_MAP;
         texture.bind(0);
         texture.set_wrapping_clamp();
-        unsafe {
-            gl::TexParameteri(
-                texture.target,
-                gl::TEXTURE_MIN_FILTER,
-                gl::LINEAR_MIPMAP_LINEAR as i32,
-            );
-            gl::TexParameteri(texture.target, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-        }
+        texture.set_filtering_defaults();
         for (offset, path) in paths.iter().enumerate() {
             texture.img.push(Texture::load_image(
                 path,
@@ -104,6 +94,14 @@ impl Texture {
             gl::TexParameteri(self.target, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
             gl::TexParameteri(self.target, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
             gl::TexParameteri(self.target, gl::TEXTURE_WRAP_R, gl::REPEAT as i32);
+        }
+    }
+
+    fn set_filtering_defaults(&mut self) {
+        unsafe {
+            // Default filtering options
+            gl::TexParameteri(self.target, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(self.target, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
         }
     }
 
