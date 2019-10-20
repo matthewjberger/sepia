@@ -1,5 +1,28 @@
 use gl::types::GLvoid;
 use image::{DynamicImage, DynamicImage::*, GenericImageView};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+
+pub type TextureCacheRef = Arc<RwLock<TextureCache>>;
+
+#[derive(Default)]
+pub struct TextureCache {
+    items: HashMap<String, Texture>,
+}
+
+impl TextureCache {
+    pub fn new() -> Self {
+        TextureCache::default()
+    }
+
+    pub fn retrieve(&mut self, path: &str) -> &Texture {
+        if !self.items.contains_key(path) {
+            self.items
+                .insert(path.to_string(), Texture::from_file(path));
+        }
+        &self.items[path]
+    }
+}
 
 #[derive(Default)]
 pub struct Texture {
