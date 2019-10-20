@@ -16,12 +16,10 @@ struct MainState {
     model: Model,
     camera: Camera,
     skybox: Skybox,
-    texture: Texture,
 }
 
 impl State for MainState {
     fn initialize(&mut self) {
-        self.texture = Texture::from_file("assets/textures/blue.jpg");
         self.shader_program = ShaderProgram::new();
         self.shader_program
             .vertex_shader_file("assets/shaders/model/model.vs.glsl")
@@ -82,7 +80,6 @@ impl State for MainState {
     }
 
     fn render(&mut self, state_data: &mut StateData) {
-        self.texture.bind(0);
         let projection = glm::perspective(
             state_data.aspect_ratio,
             50_f32.to_degrees(),
