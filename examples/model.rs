@@ -6,7 +6,7 @@ use sepia::camera::*;
 use sepia::model::*;
 use sepia::shaderprogram::*;
 use sepia::skybox::*;
-use sepia::texture::*;
+
 
 const ONES: &[GLfloat; 1] = &[1.0];
 
