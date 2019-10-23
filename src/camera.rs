@@ -35,7 +35,7 @@ impl Camera {
             front: Vector3::new(0.0, 0.0, -1.0),
             up: Vector3::new(0.0, 0.0, 0.0),
             world_up: Vector3::new(0.0, -1.0, 0.0),
-            speed: 10.0,
+            speed: 100.0,
             sensitivity: 0.05,
             yaw: -90.0,
             pitch: 0.0,

@@ -130,7 +130,7 @@ impl Texture {
                 gl::UNSIGNED_BYTE,
                 img.raw_pixels().as_ptr() as *const GLvoid,
             );
-            gl::GenerateMipmap(target)
+            gl::GenerateMipmap(target);
         }
         img
     }
