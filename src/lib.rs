@@ -1,6 +1,7 @@
 pub mod app;
 pub mod buffer;
 pub mod camera;
+pub mod gltf;
 pub mod mesh;
 pub mod model;
 pub mod shader;

@@ -12,6 +12,7 @@ tobj = "0.1.11"
 collada = "0.12.0"
 nalgebra = "0.18.1"
 nalgebra-glm = "0.4.2"
+nphysics3d = "0.12.3"
 
 [dependencies.gltf]
 version = "0.14"
