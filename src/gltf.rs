@@ -27,29 +27,33 @@ impl Vertex {
     }
 }
 
+pub struct MeshInfo {
+    primitives: Vec<PrimitiveInfo>,
+    pub transform: glm::Mat4,
+}
+
 // TODO: This is actually representing a primitive.
 //       Call this primitive and make a separate 'Mesh' class containing the transform.
 #[derive(Default)]
-pub struct Mesh {
+pub struct PrimitiveInfo {
     vao: VertexArrayObject,
     vbo: Buffer,
     ibo: Buffer,
     num_indices: i32,
     material_index: i32,
-    pub transform: Option<glm::Mat4>,
 }
 
 pub struct GltfScene {
     texture_ids: Vec<u32>,
     gltf: gltf::Document,
-    meshes: Vec<Mesh>,
+    meshes: Vec<MeshInfo>,
 }
 
 impl GltfScene {
     pub fn from_file(path: &str) -> Self {
         let (gltf, buffers, textures) = gltf::import(path).expect("Couldn't import file!");
         let texture_ids = prepare_textures_gl(&textures);
-        let mut meshes: Vec<Mesh> = Vec::new();
+        let mut meshes: Vec<MeshInfo> = Vec::new();
         for scene in gltf.scenes() {
             for node in scene.nodes() {
                 visit_children(&node, &buffers, &mut meshes);
@@ -66,36 +70,38 @@ impl GltfScene {
     //       Need pbr shaders and need basic shaders
     pub fn render_meshes<F>(&self, handle_mesh: F)
     where
-        F: Fn(&Mesh, &[f32; 4]),
+        F: Fn(&MeshInfo, &[f32; 4]),
     {
         for mesh in self.meshes.iter() {
             // TODO: Store ref to material in mesh
 
-            let material = self.lookup_material(mesh.material_index);
-            let pbr = material.pbr_metallic_roughness();
-            let base_color = pbr.base_color_factor();
+            for primitive_info in mesh.primitives.iter() {
+                let material = self.lookup_material(primitive_info.material_index);
+                let pbr = material.pbr_metallic_roughness();
+                let base_color = pbr.base_color_factor();
 
-            if !self.texture_ids.is_empty() {
-                let base_color_index = pbr
-                    .base_color_texture()
-                    .expect("Couldn't get base color texture!")
-                    .texture()
-                    .index();
-                unsafe {
-                    gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[base_color_index]);
+                if !self.texture_ids.is_empty() {
+                    let base_color_index = pbr
+                        .base_color_texture()
+                        .expect("Couldn't get base color texture!")
+                        .texture()
+                        .index();
+                    unsafe {
+                        gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[base_color_index]);
+                    }
                 }
-            }
 
-            handle_mesh(&mesh, &base_color);
+                handle_mesh(&mesh, &base_color);
 
-            mesh.vao.bind();
-            unsafe {
-                gl::DrawElements(
-                    gl::TRIANGLES,
-                    mesh.num_indices,
-                    gl::UNSIGNED_INT,
-                    ptr::null(),
-                );
+                primitive_info.vao.bind();
+                unsafe {
+                    gl::DrawElements(
+                        gl::TRIANGLES,
+                        primitive_info.num_indices,
+                        gl::UNSIGNED_INT,
+                        ptr::null(),
+                    );
+                }
             }
         }
     }
@@ -149,11 +155,10 @@ fn prepare_textures_gl(textures: &[gltf::image::Data]) -> Vec<u32> {
 fn visit_children(
     node: &gltf::Node,
     buffers: &[gltf::buffer::Data],
-    loaded_meshes: &mut Vec<Mesh>,
+    loaded_meshes: &mut Vec<MeshInfo>,
 ) {
     if let Some(mesh) = node.mesh() {
-        let transform_matrix = determine_transform(&node);
-
+        let mut all_primitive_info = Vec::new();
         for primitive in mesh.primitives() {
             let (vertices, indices) = read_buffer_data(&primitive, &buffers);
 
@@ -163,12 +168,17 @@ fn visit_children(
                 .index()
                 .expect("Couldn't get material index!") as i32;
 
-            let mut mesh = prepare_mesh_gl(&vertices, &indices);
-            mesh.material_index = material_index;
-            mesh.transform = Some(transform_matrix);
-
-            loaded_meshes.push(mesh);
+            let mut primitive_info = prepare_primitive_gl(&vertices, &indices);
+            primitive_info.material_index = material_index;
+            all_primitive_info.push(primitive_info);
         }
+
+        let transform_matrix = determine_transform(&node);
+
+        loaded_meshes.push(MeshInfo {
+            primitives: all_primitive_info,
+            transform: transform_matrix,
+        });
     }
 
     for child in node.children() {
@@ -228,21 +238,25 @@ fn read_buffer_data(
     (vertices, indices)
 }
 
-fn prepare_mesh_gl(vertices: &[Vertex], indices: &[u32]) -> Mesh {
-    let mut mesh = Mesh::default();
-    mesh.vao = VertexArrayObject::new();
-    mesh.vbo = Buffer::new(BufferKind::Array);
-    mesh.ibo = Buffer::new(BufferKind::Element);
-    mesh.num_indices = indices.len() as i32;
+fn prepare_primitive_gl(vertices: &[Vertex], indices: &[u32]) -> PrimitiveInfo {
+    let mut primitive_info = PrimitiveInfo::default();
+    primitive_info.vao = VertexArrayObject::new();
+    primitive_info.vbo = Buffer::new(BufferKind::Array);
+    primitive_info.ibo = Buffer::new(BufferKind::Element);
+    primitive_info.num_indices = indices.len() as i32;
 
-    mesh.vbo.add_data(vertices);
-    mesh.vbo.upload(&mesh.vao, DrawingHint::StaticDraw);
-    mesh.ibo.add_data(indices);
-    mesh.ibo.upload(&mesh.vao, DrawingHint::StaticDraw);
+    primitive_info.vbo.add_data(vertices);
+    primitive_info
+        .vbo
+        .upload(&primitive_info.vao, DrawingHint::StaticDraw);
+    primitive_info.ibo.add_data(indices);
+    primitive_info
+        .ibo
+        .upload(&primitive_info.vao, DrawingHint::StaticDraw);
 
-    mesh.vao.configure_attribute(0, 3, 8, 0);
-    mesh.vao.configure_attribute(1, 3, 8, 3);
-    mesh.vao.configure_attribute(2, 2, 8, 6);
+    primitive_info.vao.configure_attribute(0, 3, 8, 0);
+    primitive_info.vao.configure_attribute(1, 3, 8, 3);
+    primitive_info.vao.configure_attribute(2, 2, 8, 6);
 
-    mesh
+    primitive_info
 }

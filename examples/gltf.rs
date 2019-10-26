@@ -97,7 +97,7 @@ impl State for MainState {
         scene.render_meshes(|mesh, base_color| {
             let mvp = projection
                 * view
-                * mesh.transform.as_ref().unwrap()
+                * mesh.transform
                 * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -20.0));
             self.shader_program
                 .set_uniform_matrix4x4("mvp_matrix", mvp.as_slice());
