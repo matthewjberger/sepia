@@ -32,13 +32,8 @@ pub struct MeshInfo {
     pub transform: glm::Mat4,
 }
 
-// TODO: This is actually representing a primitive.
-//       Call this primitive and make a separate 'Mesh' class containing the transform.
-#[derive(Default)]
 pub struct PrimitiveInfo {
     vao: VertexArrayObject,
-    vbo: Buffer,
-    ibo: Buffer,
     num_indices: i32,
     material_index: i32,
 }
@@ -168,7 +163,7 @@ fn visit_children(
                 .index()
                 .expect("Couldn't get material index!") as i32;
 
-            let mut primitive_info = prepare_primitive_gl(&vertices, &indices);
+            let mut primitive_info = prepare_primitive_gl(&vertices, &indices, material_index);
             primitive_info.material_index = material_index;
             all_primitive_info.push(primitive_info);
         }
@@ -238,25 +233,28 @@ fn read_buffer_data(
     (vertices, indices)
 }
 
-fn prepare_primitive_gl(vertices: &[Vertex], indices: &[u32]) -> PrimitiveInfo {
-    let mut primitive_info = PrimitiveInfo::default();
-    primitive_info.vao = VertexArrayObject::new();
-    primitive_info.vbo = Buffer::new(BufferKind::Array);
-    primitive_info.ibo = Buffer::new(BufferKind::Element);
-    primitive_info.num_indices = indices.len() as i32;
+fn prepare_primitive_gl(
+    vertices: &[Vertex],
+    indices: &[u32],
+    material_index: i32,
+) -> PrimitiveInfo {
+    let vao = VertexArrayObject::new();
+    let mut vbo = Buffer::new(BufferKind::Array);
+    let mut ibo = Buffer::new(BufferKind::Element);
 
-    primitive_info.vbo.add_data(vertices);
-    primitive_info
-        .vbo
-        .upload(&primitive_info.vao, DrawingHint::StaticDraw);
-    primitive_info.ibo.add_data(indices);
-    primitive_info
-        .ibo
-        .upload(&primitive_info.vao, DrawingHint::StaticDraw);
+    vbo.add_data(vertices);
+    vbo.upload(&vao, DrawingHint::StaticDraw);
 
-    primitive_info.vao.configure_attribute(0, 3, 8, 0);
-    primitive_info.vao.configure_attribute(1, 3, 8, 3);
-    primitive_info.vao.configure_attribute(2, 2, 8, 6);
+    ibo.add_data(indices);
+    ibo.upload(&vao, DrawingHint::StaticDraw);
 
-    primitive_info
+    vao.configure_attribute(0, 3, 8, 0);
+    vao.configure_attribute(1, 3, 8, 3);
+    vao.configure_attribute(2, 2, 8, 6);
+
+    PrimitiveInfo {
+        vao,
+        num_indices: indices.len() as i32,
+        material_index,
+    }
 }
