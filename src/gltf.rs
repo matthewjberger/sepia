@@ -2,7 +2,7 @@ use crate::buffer::*;
 use crate::vao::*;
 pub use gl::types::*;
 pub use gl::types::*;
-use gltf::image::Format;
+use gltf::{animation::util::ReadOutputs, image::Format};
 use nalgebra_glm as glm;
 use std::ptr;
 
@@ -28,6 +28,7 @@ impl Vertex {
 }
 
 pub struct MeshInfo {
+    node_index: usize,
     primitives: Vec<PrimitiveInfo>,
     pub transform: glm::Mat4,
 }
@@ -38,26 +39,30 @@ pub struct PrimitiveInfo {
     material_index: i32,
 }
 
+pub struct AnimationInfo {
+    node_index: usize,
+    inputs: Vec<f32>,
+}
+
 pub struct GltfScene {
     texture_ids: Vec<u32>,
     gltf: gltf::Document,
     meshes: Vec<MeshInfo>,
+    animations: Vec<AnimationInfo>,
 }
 
 impl GltfScene {
     pub fn from_file(path: &str) -> Self {
         let (gltf, buffers, textures) = gltf::import(path).expect("Couldn't import file!");
         let texture_ids = prepare_textures_gl(&textures);
-        let mut meshes: Vec<MeshInfo> = Vec::new();
-        for scene in gltf.scenes() {
-            for node in scene.nodes() {
-                visit_children(&node, &buffers, &mut meshes);
-            }
-        }
+        let meshes = prepare_meshes(&gltf, &buffers);
+        let animations = prepare_animations(&gltf, &buffers);
+
         GltfScene {
             texture_ids,
             gltf,
             meshes,
+            animations,
         }
     }
 
@@ -107,6 +112,48 @@ impl GltfScene {
             .nth(index as usize)
             .expect("Couldn't get material!")
     }
+}
+
+fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<AnimationInfo> {
+    let mut all_animation_info = Vec::new();
+    for animation in gltf.animations() {
+        for channel in animation.channels() {
+            let node_index = channel.target().node().index();
+            let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
+            let inputs = reader.read_inputs().unwrap().collect::<Vec<_>>();
+            let outputs = reader.read_outputs().unwrap();
+
+            // TODO: Store the transformations in AnimationInfo
+            match outputs {
+                ReadOutputs::Translations(translations) => {
+                    // let translations = translations.into_f32().collect::<Vec<_>>();
+                    println!("TRANSLATIONS: {:?}", translations);
+                }
+                ReadOutputs::Rotations(rotations) => {
+                    let rotations = rotations.into_f32().collect::<Vec<_>>();
+                    println!("ROTATIONS: {:?}", rotations);
+                }
+                ReadOutputs::Scales(scales) => {
+                    println!("SCALES: {:?}", scales);
+                }
+                ReadOutputs::MorphTargetWeights(weights) => {
+                    let morph_target_weights = weights.into_f32().collect::<Vec<_>>();
+                }
+            }
+            all_animation_info.push(AnimationInfo { node_index, inputs });
+        }
+    }
+    all_animation_info
+}
+
+fn prepare_meshes(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<MeshInfo> {
+    let mut meshes: Vec<MeshInfo> = Vec::new();
+    for scene in gltf.scenes() {
+        for node in scene.nodes() {
+            visit_children(&node, &buffers, &mut meshes);
+        }
+    }
+    meshes
 }
 
 fn prepare_textures_gl(textures: &[gltf::image::Data]) -> Vec<u32> {
@@ -173,6 +220,7 @@ fn visit_children(
         loaded_meshes.push(MeshInfo {
             primitives: all_primitive_info,
             transform: transform_matrix,
+            node_index: node.index(),
         });
     }
 

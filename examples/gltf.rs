@@ -33,7 +33,7 @@ impl State for MainState {
             "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
 
-        self.scene = Some(GltfScene::from_file("assets/models/Lantern/Lantern.gltf"));
+        self.scene = Some(GltfScene::from_file("assets/models/BoxAnimated.glb"));
     }
 
     fn handle_events(&mut self, state_data: &mut StateData, event: &glfw::WindowEvent) {
