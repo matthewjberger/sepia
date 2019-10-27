@@ -7,7 +7,6 @@ use gltf::{
     image::Format,
 };
 use nalgebra_glm as glm;
-use std::ptr;
 
 // TODO: join up crate use statements
 
@@ -32,14 +31,14 @@ impl Vertex {
 
 pub struct MeshInfo {
     node_index: usize,
-    primitives: Vec<PrimitiveInfo>,
+    pub primitives: Vec<PrimitiveInfo>,
     pub transform: glm::Mat4,
 }
 
 pub struct PrimitiveInfo {
-    vao: VertexArrayObject,
-    num_indices: i32,
-    material_index: i32,
+    pub vao: VertexArrayObject,
+    pub num_indices: i32,
+    pub material_index: i32,
 }
 
 pub struct AnimationInfo {
@@ -57,10 +56,10 @@ enum TransformationSet {
 }
 
 pub struct GltfScene {
-    texture_ids: Vec<u32>,
-    gltf: gltf::Document,
-    meshes: Vec<MeshInfo>,
-    animations: Vec<AnimationInfo>,
+    pub texture_ids: Vec<u32>,
+    pub gltf: gltf::Document,
+    pub meshes: Vec<MeshInfo>,
+    pub animations: Vec<AnimationInfo>,
 }
 
 impl GltfScene {
@@ -78,51 +77,53 @@ impl GltfScene {
         }
     }
 
-    // TODO: Create a shader cache and retrieve the shader to use from there.
-    //       Need pbr shaders and need basic shaders
-    pub fn render_meshes<F>(&self, handle_mesh: F)
-    where
-        F: Fn(&MeshInfo, &[f32; 4]),
-    {
-        for mesh in self.meshes.iter() {
-            // TODO: Store ref to material in mesh
-
-            for primitive_info in mesh.primitives.iter() {
-                let material = self.lookup_material(primitive_info.material_index);
-                let pbr = material.pbr_metallic_roughness();
-                let base_color = pbr.base_color_factor();
-
-                if !self.texture_ids.is_empty() {
-                    let base_color_index = pbr
-                        .base_color_texture()
-                        .expect("Couldn't get base color texture!")
-                        .texture()
-                        .index();
-                    unsafe {
-                        gl::BindTexture(gl::TEXTURE_2D, self.texture_ids[base_color_index]);
-                    }
-                }
-
-                handle_mesh(&mesh, &base_color);
-
-                primitive_info.vao.bind();
-                unsafe {
-                    gl::DrawElements(
-                        gl::TRIANGLES,
-                        primitive_info.num_indices,
-                        gl::UNSIGNED_INT,
-                        ptr::null(),
-                    );
-                }
-            }
-        }
-    }
-
-    fn lookup_material(&self, index: i32) -> gltf::Material {
+    pub fn lookup_material(&self, index: i32) -> gltf::Material {
         self.gltf
             .materials()
             .nth(index as usize)
             .expect("Couldn't get material!")
+    }
+}
+
+pub fn animate_mesh(animations: &[AnimationInfo], mesh_info: &mut MeshInfo, seconds: f32) {
+    if animations.is_empty() {
+        return;
+    }
+
+    let animation = animations
+        .iter()
+        .find(|animation_info| animation_info.node_index == mesh_info.node_index);
+
+    if animation.is_none() {
+        return;
+    }
+
+    let animation = animation.expect("Couldn't get the mesh animation!");
+
+    match &animation.transformations {
+        TransformationSet::Translations(translations) => {
+            println!("Translate!");
+
+            // TODO: map provided seconds to animation seconds between min and max inputs
+            // TODO: interpolate between translations at keyframe indices and apply to mesh transform
+        }
+        TransformationSet::Rotations(rotations) => {
+            println!("Rotate!");
+        }
+        TransformationSet::Scales(scales) => unimplemented!(),
+        TransformationSet::MorphTargetWeights(weights) => unimplemented!(),,
+    }
+
+    println!("Found animation!");
+}
+
+// TODO: Write this method for vec3's and vec4's
+fn interpolate(interpolation: Interpolation) {
+    match interpolation {
+        Interpolation::Linear => {}
+        Interpolation::Step => {}
+        Interpolation::CatmullRomSpline => {}
+        Interpolation::CubicSpline => {}
     }
 }
 

@@ -5,6 +5,7 @@ use sepia::camera::*;
 use sepia::gltf::*;
 use sepia::shaderprogram::*;
 use sepia::skybox::*;
+use std::ptr;
 
 const ONES: &[GLfloat; 1] = &[1.0];
 
@@ -53,6 +54,13 @@ impl State for MainState {
     }
 
     fn update(&mut self, state_data: &mut StateData) {
+        let second = state_data.current_time;
+
+        // TODO: Find a way to trigger animation for multiple meshes
+        let scene = self.scene.as_mut().unwrap();
+        let animations = &scene.animations;
+        animate_mesh(animations, &mut scene.meshes[1], second);
+
         if state_data.window.get_key(glfw::Key::W) == glfw::Action::Press {
             self.camera
                 .translate(CameraDirection::Forward, state_data.delta_time);
@@ -78,6 +86,8 @@ impl State for MainState {
         state_data.window.set_cursor_mode(CursorMode::Disabled);
     }
 
+    // TODO: Create a shader cache and retrieve the shader to use from there.
+    //       Need pbr shaders and need basic shaders
     fn render(&mut self, state_data: &mut StateData) {
         let projection = glm::perspective(
             state_data.aspect_ratio,
@@ -91,20 +101,44 @@ impl State for MainState {
         self.skybox.render(&projection, &self.camera.view_matrix());
         let view = self.camera.view_matrix();
 
-        self.shader_program.activate();
-
         let scene = self.scene.as_ref().unwrap();
-        scene.render_meshes(|mesh, base_color| {
-            let mvp = projection
-                * view
-                * mesh.transform
-                * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -20.0));
-            self.shader_program
-                .set_uniform_matrix4x4("mvp_matrix", mvp.as_slice());
+        for mesh in scene.meshes.iter() {
+            for primitive_info in mesh.primitives.iter() {
+                let material = scene.lookup_material(primitive_info.material_index);
+                let pbr = material.pbr_metallic_roughness();
+                let base_color = pbr.base_color_factor();
+                if !scene.texture_ids.is_empty() {
+                    let base_color_index = pbr
+                        .base_color_texture()
+                        .expect("Couldn't get base color texture!")
+                        .texture()
+                        .index();
+                    unsafe {
+                        gl::BindTexture(gl::TEXTURE_2D, scene.texture_ids[base_color_index]);
+                    }
+                }
+                self.shader_program.activate();
 
-            self.shader_program
-                .set_uniform_vec4("base_color", base_color);
-        });
+                let mvp = projection
+                    * view
+                    * mesh.transform
+                    * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -20.0));
+                self.shader_program
+                    .set_uniform_matrix4x4("mvp_matrix", mvp.as_slice());
+                self.shader_program
+                    .set_uniform_vec4("base_color", &base_color);
+
+                primitive_info.vao.bind();
+                unsafe {
+                    gl::DrawElements(
+                        gl::TRIANGLES,
+                        primitive_info.num_indices,
+                        gl::UNSIGNED_INT,
+                        ptr::null(),
+                    );
+                }
+            }
+        }
     }
 }
 
