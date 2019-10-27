@@ -2,7 +2,10 @@ use crate::buffer::*;
 use crate::vao::*;
 pub use gl::types::*;
 pub use gl::types::*;
-use gltf::{animation::util::ReadOutputs, image::Format};
+use gltf::{
+    animation::{util::ReadOutputs, Interpolation},
+    image::Format,
+};
 use nalgebra_glm as glm;
 use std::ptr;
 
@@ -42,6 +45,15 @@ pub struct PrimitiveInfo {
 pub struct AnimationInfo {
     node_index: usize,
     inputs: Vec<f32>,
+    transformations: TransformationSet,
+    interpolation: Interpolation,
+}
+
+enum TransformationSet {
+    Translations(Vec<glm::Vec3>),
+    Rotations(Vec<glm::Vec4>),
+    Scales(Vec<glm::Vec3>),
+    MorphTargetWeights(Vec<f32>),
 }
 
 pub struct GltfScene {
@@ -118,29 +130,58 @@ fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
     let mut all_animation_info = Vec::new();
     for animation in gltf.animations() {
         for channel in animation.channels() {
+            let sampler = channel.sampler();
+            let interpolation = sampler.interpolation();
             let node_index = channel.target().node().index();
             let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
             let inputs = reader.read_inputs().unwrap().collect::<Vec<_>>();
             let outputs = reader.read_outputs().unwrap();
 
-            // TODO: Store the transformations in AnimationInfo
+            println!("Interpolation Mode: {:?}", interpolation);
+            println!("Inputs: {:?}", inputs);
+
+            let transformations: TransformationSet;
+
+            // TODO: Generalize the mapping to vec3 and vec4
             match outputs {
                 ReadOutputs::Translations(translations) => {
-                    // let translations = translations.into_f32().collect::<Vec<_>>();
-                    println!("TRANSLATIONS: {:?}", translations);
+                    let translations = translations
+                        .map(|translation| {
+                            glm::vec3(translation[0], translation[1], translation[2])
+                        })
+                        .collect::<Vec<_>>();
+                    println!("Translations: {:?}", translations);
+                    transformations = TransformationSet::Translations(translations);
                 }
                 ReadOutputs::Rotations(rotations) => {
-                    let rotations = rotations.into_f32().collect::<Vec<_>>();
-                    println!("ROTATIONS: {:?}", rotations);
+                    let rotations = rotations
+                        .into_f32()
+                        .map(|rotation| {
+                            glm::vec4(rotation[0], rotation[1], rotation[2], rotation[3])
+                        })
+                        .collect::<Vec<_>>();
+                    println!("Rotations: {:?}", rotations);
+                    transformations = TransformationSet::Rotations(rotations);
                 }
                 ReadOutputs::Scales(scales) => {
-                    println!("SCALES: {:?}", scales);
+                    let scales = scales
+                        .map(|scale| glm::vec3(scale[0], scale[1], scale[2]))
+                        .collect::<Vec<_>>();
+                    println!("Scales: {:?}", scales);
+                    transformations = TransformationSet::Scales(scales);
                 }
                 ReadOutputs::MorphTargetWeights(weights) => {
                     let morph_target_weights = weights.into_f32().collect::<Vec<_>>();
+                    println!("Morph Target Weights: {:?}", morph_target_weights);
+                    transformations = TransformationSet::MorphTargetWeights(morph_target_weights);
                 }
             }
-            all_animation_info.push(AnimationInfo { node_index, inputs });
+            all_animation_info.push(AnimationInfo {
+                node_index,
+                inputs,
+                transformations,
+                interpolation,
+            });
         }
     }
     all_animation_info
@@ -296,9 +337,9 @@ fn prepare_primitive_gl(
     ibo.add_data(indices);
     ibo.upload(&vao, DrawingHint::StaticDraw);
 
-    vao.configure_attribute(0, 3, 8, 0);
-    vao.configure_attribute(1, 3, 8, 3);
-    vao.configure_attribute(2, 2, 8, 6);
+    vao.configure_attribute(0, 3, 8, 0); // Position
+    vao.configure_attribute(1, 3, 8, 3); // Normal
+    vao.configure_attribute(2, 2, 8, 6); // Texture Coordinate
 
     PrimitiveInfo {
         vao,
