@@ -122,41 +122,6 @@ impl GltfScene {
     }
 }
 
-pub fn animate(animation: &AnimationInfo, seconds: f32) {
-    // if animations.is_empty() {
-    //     return;
-    // }
-
-    // println!("Mesh Index: {}", mesh_info.node_index);
-    // println!("Animations: {:?}", animations);
-
-    // let animation = animations
-    //     .iter()
-    //     .find(|animation_info| animation_info.node_index == mesh_info.node_index);
-
-    // if animation.is_none() {
-    //     return;
-    // }
-
-    // let animation = animation.expect("Couldn't get the mesh animation!");
-    // println!("Animation node index: {}", animation.node_index);
-
-    // println!("TransformationSet: {:?}", animation.transformations);
-
-    //     match &animation.transformations {
-    //         TransformationSet::Translations(translations) => {
-    //             println!("Translate!");
-    //             // TODO: map provided seconds to animation seconds between min and max inputs
-    //             // TODO: interpolate between translations at keyframe indices and apply to mesh transform
-    //         }
-    //         TransformationSet::Rotations(rotations) => {
-    //             println!("Rotate!");
-    //         }
-    //         TransformationSet::Scales(scales) => unimplemented!(),
-    //         TransformationSet::MorphTargetWeights(weights) => unimplemented!(),
-    //     }
-}
-
 // TODO: Write this method for vec3's and vec4's
 fn interpolate(interpolation: Interpolation) {
     match interpolation {
