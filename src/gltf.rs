@@ -49,6 +49,7 @@ pub struct AnimationChannel {
     interpolation: Interpolation,
 }
 
+#[derive(Debug)]
 pub struct AnimationInfo {
     channels: Vec<AnimationChannel>,
 }
@@ -89,9 +90,39 @@ impl GltfScene {
             .nth(index as usize)
             .expect("Couldn't get material!")
     }
+
+    // pub fn animate(&mut self, animation: &AnimationInfo, seconds: f32) {
+    pub fn animate(&mut self, seconds: f32) {
+        // TODO: Allow for specifying a specific animation by name
+        let animation = &self.animations[0];
+        println!("Starting Animation!");
+        for channel in animation.channels.iter() {
+            let mesh = self
+                .meshes
+                .iter()
+                .find(|mesh| mesh.node_index == channel.node_index)
+                .expect("Couldn't find mesh for animation!");
+
+            println!("TransformationSet: {:?}", channel.transformations);
+
+            match &channel.transformations {
+                TransformationSet::Translations(translations) => {
+                    println!("Translate!");
+                    // TODO: map provided seconds to animation seconds between min and max inputs
+                    // TODO: interpolate between translations at keyframe indices and apply to mesh transform
+                }
+                TransformationSet::Rotations(rotations) => {
+                    println!("Rotate!");
+                }
+                TransformationSet::Scales(scales) => unimplemented!(),
+                TransformationSet::MorphTargetWeights(weights) => unimplemented!(),
+            }
+        }
+        println!("Finished Animation!");
+    }
 }
 
-pub fn animate_mesh(animation: &AnimationInfo, mesh_info: &mut MeshInfo, seconds: f32) {
+pub fn animate(animation: &AnimationInfo, seconds: f32) {
     // if animations.is_empty() {
     //     return;
     // }
@@ -198,6 +229,7 @@ fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
         }
         animations.push(AnimationInfo { channels });
     }
+    println!("{:?}", animations);
     animations
 }
 

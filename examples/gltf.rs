@@ -36,7 +36,7 @@ impl State for MainState {
 
         self.camera.position_at(&glm::vec3(0.0, 35.0, 60.0));
 
-        self.scene = Some(GltfScene::from_file("assets/models/nanosuit.glb"));
+        self.scene = Some(GltfScene::from_file("assets/models/BoxAnimated.glb"));
 
         unsafe {
             gl::Enable(gl::CULL_FACE);
@@ -62,12 +62,10 @@ impl State for MainState {
     }
 
     fn update(&mut self, state_data: &mut StateData) {
-        let second = state_data.current_time;
+        let seconds = state_data.current_time;
 
-        // TODO: Find a way to trigger animation for multiple meshes
-        // let scene = self.scene.as_mut().unwrap();
-        // let animations = &scene.animations;
-        // animate_mesh(animations, &mut scene.meshes[1], second);
+        // TODO: Trigger animation
+        self.scene.as_mut().unwrap().animate(seconds);
 
         if state_data.window.get_key(glfw::Key::W) == glfw::Action::Press {
             self.camera
