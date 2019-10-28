@@ -65,7 +65,10 @@ impl State for MainState {
         let seconds = state_data.current_time;
 
         // TODO: Trigger animation
-        self.scene.as_mut().unwrap().animate(seconds);
+        let scene = self.scene.as_mut().unwrap();
+        if !scene.animations.is_empty() {
+            self.scene.as_mut().unwrap().animate(seconds);
+        }
 
         if state_data.window.get_key(glfw::Key::W) == glfw::Action::Press {
             self.camera
@@ -108,40 +111,42 @@ impl State for MainState {
         let view = self.camera.view_matrix();
 
         let scene = self.scene.as_ref().unwrap();
-        for mesh in scene.meshes.iter() {
-            for primitive_info in mesh.primitives.iter() {
-                let material = scene.lookup_material(primitive_info.material_index);
-                let pbr = material.pbr_metallic_roughness();
-                let base_color = pbr.base_color_factor();
-                if !scene.texture_ids.is_empty() {
-                    let base_color_index = pbr
-                        .base_color_texture()
-                        .expect("Couldn't get base color texture!")
-                        .texture()
-                        .index();
-                    unsafe {
-                        gl::BindTexture(gl::TEXTURE_2D, scene.texture_ids[base_color_index]);
+        for node in scene.nodes.iter() {
+            if let Some(mesh) = &node.mesh {
+                for primitive_info in mesh.primitives.iter() {
+                    let material = scene.lookup_material(primitive_info.material_index);
+                    let pbr = material.pbr_metallic_roughness();
+                    let base_color = pbr.base_color_factor();
+                    if !scene.texture_ids.is_empty() {
+                        let base_color_index = pbr
+                            .base_color_texture()
+                            .expect("Couldn't get base color texture!")
+                            .texture()
+                            .index();
+                        unsafe {
+                            gl::BindTexture(gl::TEXTURE_2D, scene.texture_ids[base_color_index]);
+                        }
                     }
-                }
-                self.shader_program.activate();
+                    self.shader_program.activate();
 
-                let mvp = projection
-                    * view
-                    * mesh.transform
-                    * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -20.0));
-                self.shader_program
-                    .set_uniform_matrix4x4("mvp_matrix", mvp.as_slice());
-                self.shader_program
-                    .set_uniform_vec4("base_color", &base_color);
+                    let mvp = projection
+                        * view
+                        * node.transform
+                        * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -20.0));
+                    self.shader_program
+                        .set_uniform_matrix4x4("mvp_matrix", mvp.as_slice());
+                    self.shader_program
+                        .set_uniform_vec4("base_color", &base_color);
 
-                primitive_info.vao.bind();
-                unsafe {
-                    gl::DrawElements(
-                        gl::TRIANGLES,
-                        primitive_info.num_indices,
-                        gl::UNSIGNED_INT,
-                        ptr::null(),
-                    );
+                    primitive_info.vao.bind();
+                    unsafe {
+                        gl::DrawElements(
+                            gl::TRIANGLES,
+                            primitive_info.num_indices,
+                            gl::UNSIGNED_INT,
+                            ptr::null(),
+                        );
+                    }
                 }
             }
         }

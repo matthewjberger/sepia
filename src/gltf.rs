@@ -7,6 +7,7 @@ use gltf::{
     image::Format,
 };
 use nalgebra_glm as glm;
+use std::cmp;
 
 // TODO: join up crate use statements
 
@@ -29,10 +30,14 @@ impl Vertex {
     }
 }
 
-pub struct MeshInfo {
-    node_index: usize,
-    pub primitives: Vec<PrimitiveInfo>,
+pub struct NodeInfo {
     pub transform: glm::Mat4,
+    pub mesh: Option<MeshInfo>,
+    index: usize,
+}
+
+pub struct MeshInfo {
+    pub primitives: Vec<PrimitiveInfo>,
 }
 
 pub struct PrimitiveInfo {
@@ -65,7 +70,7 @@ enum TransformationSet {
 pub struct GltfScene {
     pub texture_ids: Vec<u32>,
     pub gltf: gltf::Document,
-    pub meshes: Vec<MeshInfo>,
+    pub nodes: Vec<NodeInfo>,
     pub animations: Vec<AnimationInfo>,
 }
 
@@ -73,13 +78,13 @@ impl GltfScene {
     pub fn from_file(path: &str) -> Self {
         let (gltf, buffers, textures) = gltf::import(path).expect("Couldn't import file!");
         let texture_ids = prepare_textures_gl(&textures);
-        let meshes = prepare_meshes(&gltf, &buffers);
+        let nodes = prepare_nodes(&gltf, &buffers);
         let animations = prepare_animations(&gltf, &buffers);
 
         GltfScene {
             texture_ids,
             gltf,
-            meshes,
+            nodes,
             animations,
         }
     }
@@ -94,25 +99,36 @@ impl GltfScene {
     // pub fn animate(&mut self, animation: &AnimationInfo, seconds: f32) {
     pub fn animate(&mut self, seconds: f32) {
         // TODO: Allow for specifying a specific animation by name
-        let animation = &self.animations[0];
+        let animation = &mut self.animations[0];
         println!("Starting Animation!");
-        for channel in animation.channels.iter() {
-            let mesh = self
-                .meshes
+        for channel in animation.channels.iter_mut() {
+            let node = self
+                .nodes
                 .iter()
-                .find(|mesh| mesh.node_index == channel.node_index)
+                .find(|node| node.index == channel.node_index)
                 .expect("Couldn't find mesh for animation!");
 
-            println!("TransformationSet: {:?}", channel.transformations);
+            // if mesh.is_none() {
+            //     println!("Fail!: mesh_index = {}, animation node index = {}",);
+            //     return;
+            // }
+
+            // println!("TransformationSet: {:?}", channel.transformations);
+
+            let mut time = seconds % channel.inputs.last().unwrap();
+            let first_input = channel.inputs.first().unwrap();
+            if time.lt(first_input) {
+                time = *first_input;
+            }
+            println!("Animation Time: {}", time);
 
             match &channel.transformations {
                 TransformationSet::Translations(translations) => {
-                    println!("Translate!");
-                    // TODO: map provided seconds to animation seconds between min and max inputs
+                    // println!("Translate!");
                     // TODO: interpolate between translations at keyframe indices and apply to mesh transform
                 }
                 TransformationSet::Rotations(rotations) => {
-                    println!("Rotate!");
+                    // println!("Rotate!");
                 }
                 TransformationSet::Scales(scales) => unimplemented!(),
                 TransformationSet::MorphTargetWeights(weights) => unimplemented!(),
@@ -198,14 +214,14 @@ fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
     animations
 }
 
-fn prepare_meshes(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<MeshInfo> {
-    let mut meshes: Vec<MeshInfo> = Vec::new();
+fn prepare_nodes(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<NodeInfo> {
+    let mut nodes: Vec<NodeInfo> = Vec::new();
     for scene in gltf.scenes() {
         for node in scene.nodes() {
-            visit_children(&node, &buffers, &mut meshes);
+            visit_children(&node, &buffers, &mut nodes);
         }
     }
-    meshes
+    nodes
 }
 
 fn prepare_textures_gl(textures: &[gltf::image::Data]) -> Vec<u32> {
@@ -249,8 +265,20 @@ fn prepare_textures_gl(textures: &[gltf::image::Data]) -> Vec<u32> {
 fn visit_children(
     node: &gltf::Node,
     buffers: &[gltf::buffer::Data],
-    loaded_meshes: &mut Vec<MeshInfo>,
+    visited_nodes: &mut Vec<NodeInfo>,
 ) {
+    visited_nodes.push(NodeInfo {
+        transform: determine_transform(node),
+        mesh: load_mesh(node, buffers),
+        index: node.index(),
+    });
+
+    for child in node.children() {
+        visit_children(&child, buffers, visited_nodes);
+    }
+}
+
+fn load_mesh(node: &gltf::Node, buffers: &[gltf::buffer::Data]) -> Option<MeshInfo> {
     if let Some(mesh) = node.mesh() {
         let mut all_primitive_info = Vec::new();
         for primitive in mesh.primitives() {
@@ -266,18 +294,11 @@ fn visit_children(
             primitive_info.material_index = material_index;
             all_primitive_info.push(primitive_info);
         }
-
-        let transform_matrix = determine_transform(&node);
-
-        loaded_meshes.push(MeshInfo {
+        Some(MeshInfo {
             primitives: all_primitive_info,
-            transform: transform_matrix,
-            node_index: node.index(),
-        });
-    }
-
-    for child in node.children() {
-        visit_children(&child, buffers, loaded_meshes);
+        })
+    } else {
+        None
     }
 }
 
