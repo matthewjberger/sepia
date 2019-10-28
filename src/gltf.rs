@@ -41,13 +41,19 @@ pub struct PrimitiveInfo {
     pub material_index: i32,
 }
 
-pub struct AnimationInfo {
+#[derive(Debug)]
+pub struct AnimationChannel {
     node_index: usize,
     inputs: Vec<f32>,
     transformations: TransformationSet,
     interpolation: Interpolation,
 }
 
+pub struct AnimationInfo {
+    channels: Vec<AnimationChannel>,
+}
+
+#[derive(Debug)]
 enum TransformationSet {
     Translations(Vec<glm::Vec3>),
     Rotations(Vec<glm::Vec4>),
@@ -85,36 +91,39 @@ impl GltfScene {
     }
 }
 
-pub fn animate_mesh(animations: &[AnimationInfo], mesh_info: &mut MeshInfo, seconds: f32) {
-    if animations.is_empty() {
-        return;
-    }
+pub fn animate_mesh(animation: &AnimationInfo, mesh_info: &mut MeshInfo, seconds: f32) {
+    // if animations.is_empty() {
+    //     return;
+    // }
 
-    let animation = animations
-        .iter()
-        .find(|animation_info| animation_info.node_index == mesh_info.node_index);
+    // println!("Mesh Index: {}", mesh_info.node_index);
+    // println!("Animations: {:?}", animations);
 
-    if animation.is_none() {
-        return;
-    }
+    // let animation = animations
+    //     .iter()
+    //     .find(|animation_info| animation_info.node_index == mesh_info.node_index);
 
-    let animation = animation.expect("Couldn't get the mesh animation!");
+    // if animation.is_none() {
+    //     return;
+    // }
 
-    match &animation.transformations {
-        TransformationSet::Translations(translations) => {
-            println!("Translate!");
+    // let animation = animation.expect("Couldn't get the mesh animation!");
+    // println!("Animation node index: {}", animation.node_index);
 
-            // TODO: map provided seconds to animation seconds between min and max inputs
-            // TODO: interpolate between translations at keyframe indices and apply to mesh transform
-        }
-        TransformationSet::Rotations(rotations) => {
-            println!("Rotate!");
-        }
-        TransformationSet::Scales(scales) => unimplemented!(),
-        TransformationSet::MorphTargetWeights(weights) => unimplemented!(),
-    }
+    // println!("TransformationSet: {:?}", animation.transformations);
 
-    println!("Found animation!");
+    //     match &animation.transformations {
+    //         TransformationSet::Translations(translations) => {
+    //             println!("Translate!");
+    //             // TODO: map provided seconds to animation seconds between min and max inputs
+    //             // TODO: interpolate between translations at keyframe indices and apply to mesh transform
+    //         }
+    //         TransformationSet::Rotations(rotations) => {
+    //             println!("Rotate!");
+    //         }
+    //         TransformationSet::Scales(scales) => unimplemented!(),
+    //         TransformationSet::MorphTargetWeights(weights) => unimplemented!(),
+    //     }
 }
 
 // TODO: Write this method for vec3's and vec4's
@@ -128,8 +137,10 @@ fn interpolate(interpolation: Interpolation) {
 }
 
 fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<AnimationInfo> {
-    let mut all_animation_info = Vec::new();
+    // TODO: load names if present as well
+    let mut animations = Vec::new();
     for animation in gltf.animations() {
+        let mut channels = Vec::new();
         for channel in animation.channels() {
             let sampler = channel.sampler();
             let interpolation = sampler.interpolation();
@@ -177,15 +188,17 @@ fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
                     transformations = TransformationSet::MorphTargetWeights(morph_target_weights);
                 }
             }
-            all_animation_info.push(AnimationInfo {
+            println!("TransformationSet: {:?}", transformations);
+            channels.push(AnimationChannel {
                 node_index,
                 inputs,
                 transformations,
                 interpolation,
             });
         }
+        animations.push(AnimationInfo { channels });
     }
-    all_animation_info
+    animations
 }
 
 fn prepare_meshes(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<MeshInfo> {

@@ -34,6 +34,8 @@ impl State for MainState {
             "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
 
+        self.camera.position_at(&glm::vec3(0.0, 35.0, 60.0));
+
         self.scene = Some(GltfScene::from_file("assets/models/nanosuit.glb"));
 
         unsafe {
@@ -63,9 +65,9 @@ impl State for MainState {
         let second = state_data.current_time;
 
         // TODO: Find a way to trigger animation for multiple meshes
-        let scene = self.scene.as_mut().unwrap();
-        let animations = &scene.animations;
-        animate_mesh(animations, &mut scene.meshes[1], second);
+        // let scene = self.scene.as_mut().unwrap();
+        // let animations = &scene.animations;
+        // animate_mesh(animations, &mut scene.meshes[1], second);
 
         if state_data.window.get_key(glfw::Key::W) == glfw::Action::Press {
             self.camera
