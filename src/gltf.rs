@@ -47,7 +47,7 @@ pub struct PrimitiveInfo {
 }
 
 #[derive(Debug)]
-pub struct AnimationChannel {
+pub struct ChannelInfo {
     node_index: usize,
     inputs: Vec<f32>,
     transformations: TransformationSet,
@@ -56,7 +56,7 @@ pub struct AnimationChannel {
 
 #[derive(Debug)]
 pub struct AnimationInfo {
-    channels: Vec<AnimationChannel>,
+    channels: Vec<ChannelInfo>,
 }
 
 #[derive(Debug)]
@@ -201,7 +201,7 @@ fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
                 }
             }
             println!("TransformationSet: {:?}", transformations);
-            channels.push(AnimationChannel {
+            channels.push(ChannelInfo {
                 node_index,
                 inputs,
                 transformations,
