@@ -1,7 +1,7 @@
 use gl::types::*;
 use std::mem;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct VertexArrayObject {
     id: GLuint,
 }

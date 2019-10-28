@@ -7,11 +7,21 @@ use gltf::{
     image::Format,
 };
 use nalgebra_glm as glm;
-use std::cmp;
+use petgraph::graph::{Graph, NodeIndex};
 
 // TODO: join up crate use statements
 
 // TODO: Load bounding volumes using ncollide
+
+pub type NodeGraph = Graph<NodeInfo, ()>;
+
+#[derive(Debug)]
+enum TransformationSet {
+    Translations(Vec<glm::Vec3>),
+    Rotations(Vec<glm::Vec4>),
+    Scales(Vec<glm::Vec3>),
+    MorphTargetWeights(Vec<f32>),
+}
 
 #[repr(C)]
 pub struct Vertex {
@@ -30,16 +40,19 @@ impl Vertex {
     }
 }
 
+#[derive(Debug)]
 pub struct NodeInfo {
     pub transform: glm::Mat4,
     pub mesh: Option<MeshInfo>,
     index: usize,
 }
 
+#[derive(Debug)]
 pub struct MeshInfo {
     pub primitives: Vec<PrimitiveInfo>,
 }
 
+#[derive(Debug)]
 pub struct PrimitiveInfo {
     pub vao: VertexArrayObject,
     pub num_indices: i32,
@@ -52,6 +65,8 @@ pub struct ChannelInfo {
     inputs: Vec<f32>,
     transformations: TransformationSet,
     interpolation: Interpolation,
+    previous_key: usize,
+    previous_time: f32,
 }
 
 #[derive(Debug)]
@@ -60,31 +75,28 @@ pub struct AnimationInfo {
 }
 
 #[derive(Debug)]
-enum TransformationSet {
-    Translations(Vec<glm::Vec3>),
-    Rotations(Vec<glm::Vec4>),
-    Scales(Vec<glm::Vec3>),
-    MorphTargetWeights(Vec<f32>),
+pub struct SceneInfo {
+    pub node_graphs: Vec<NodeGraph>,
 }
 
-pub struct GltfScene {
+pub struct GltfAsset {
     pub texture_ids: Vec<u32>,
     pub gltf: gltf::Document,
-    pub nodes: Vec<NodeInfo>,
+    pub scenes: Vec<SceneInfo>,
     pub animations: Vec<AnimationInfo>,
 }
 
-impl GltfScene {
+impl GltfAsset {
     pub fn from_file(path: &str) -> Self {
         let (gltf, buffers, textures) = gltf::import(path).expect("Couldn't import file!");
         let texture_ids = prepare_textures_gl(&textures);
-        let nodes = prepare_nodes(&gltf, &buffers);
+        let scenes = prepare_scenes(&gltf, &buffers);
         let animations = prepare_animations(&gltf, &buffers);
 
-        GltfScene {
+        GltfAsset {
             texture_ids,
             gltf,
-            nodes,
+            scenes,
             animations,
         }
     }
@@ -96,45 +108,73 @@ impl GltfScene {
             .expect("Couldn't get material!")
     }
 
-    // pub fn animate(&mut self, animation: &AnimationInfo, seconds: f32) {
     pub fn animate(&mut self, seconds: f32) {
         // TODO: Allow for specifying a specific animation by name
-        let animation = &mut self.animations[0];
-        println!("Starting Animation!");
-        for channel in animation.channels.iter_mut() {
-            let node = self
-                .nodes
-                .iter()
-                .find(|node| node.index == channel.node_index)
-                .expect("Couldn't find mesh for animation!");
+        for animation in self.animations.iter_mut() {
+            for channel in animation.channels.iter_mut() {
+                for scene in self.scenes.iter_mut() {
+                    for graph in scene.node_graphs.iter_mut() {
+                        if let Some(node) =
+                            graph.node_weight_mut(NodeIndex::new(channel.node_index))
+                        {
+                            let mut time = seconds % channel.inputs.last().unwrap();
+                            let first_input = channel.inputs.first().unwrap();
+                            if time.lt(first_input) {
+                                time = *first_input;
+                            }
 
-            // if mesh.is_none() {
-            //     println!("Fail!: mesh_index = {}, animation node index = {}",);
-            //     return;
-            // }
+                            if channel.previous_time > time {
+                                channel.previous_key = 0;
+                            }
+                            channel.previous_time = time;
 
-            // println!("TransformationSet: {:?}", channel.transformations);
+                            let mut next_key: usize = 0;
+                            for index in channel.previous_key..channel.inputs.len() {
+                                let index = index as usize;
+                                if time <= channel.inputs[index] {
+                                    next_key = nalgebra::clamp(index, 1, channel.inputs.len() - 1);
+                                    break;
+                                }
+                            }
+                            channel.previous_key = nalgebra::clamp(next_key - 1, 0, next_key);
 
-            let mut time = seconds % channel.inputs.last().unwrap();
-            let first_input = channel.inputs.first().unwrap();
-            if time.lt(first_input) {
-                time = *first_input;
-            }
-            println!("Animation Time: {}", time);
+                            let key_delta =
+                                channel.inputs[next_key] - channel.inputs[channel.previous_key];
+                            let normalized_time =
+                                (time - channel.inputs[channel.previous_key]) / key_delta;
 
-            match &channel.transformations {
-                TransformationSet::Translations(translations) => {
-                    // println!("Translate!");
-                    // TODO: interpolate between translations at keyframe indices and apply to mesh transform
+                            // println!("seconds: {}", seconds);
+                            // println!("time: {}", time);
+                            // println!("previous_key: {}", channel.previous_key);
+                            // println!("next_key: {}", next_key);
+                            // println!("normalized_time: {}", normalized_time);
+
+                            // TODO: Interpolate with other methods
+                            match &channel.transformations {
+                                TransformationSet::Translations(translations) => {
+                                    let start = translations[channel.previous_key];
+                                    let end = translations[next_key];
+
+                                    // Linear interpolation
+                                    let translation = start.lerp(&end, normalized_time);
+                                    let translation_vec =
+                                        glm::vec3(translation[0], translation[1], translation[2]);
+                                    node.transform =
+                                        glm::translate(&node.transform, &translation_vec);
+
+                                    // TODO: Break out mesh into transformation vecs
+                                }
+                                TransformationSet::Rotations(rotations) => {
+                                    // println!("Rotate!");
+                                }
+                                TransformationSet::Scales(scales) => unimplemented!(),
+                                TransformationSet::MorphTargetWeights(weights) => unimplemented!(),
+                            }
+                        }
+                    }
                 }
-                TransformationSet::Rotations(rotations) => {
-                    // println!("Rotate!");
-                }
-                TransformationSet::Scales(scales) => unimplemented!(),
-                TransformationSet::MorphTargetWeights(weights) => unimplemented!(),
             }
         }
-        println!("Finished Animation!");
     }
 }
 
@@ -160,13 +200,7 @@ fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
             let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
             let inputs = reader.read_inputs().unwrap().collect::<Vec<_>>();
             let outputs = reader.read_outputs().unwrap();
-
-            println!("Interpolation Mode: {:?}", interpolation);
-            println!("Inputs: {:?}", inputs);
-
             let transformations: TransformationSet;
-
-            // TODO: Generalize the mapping to vec3 and vec4
             match outputs {
                 ReadOutputs::Translations(translations) => {
                     let translations = translations
@@ -174,7 +208,6 @@ fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
                             glm::vec3(translation[0], translation[1], translation[2])
                         })
                         .collect::<Vec<_>>();
-                    println!("Translations: {:?}", translations);
                     transformations = TransformationSet::Translations(translations);
                 }
                 ReadOutputs::Rotations(rotations) => {
@@ -184,44 +217,47 @@ fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
                             glm::vec4(rotation[0], rotation[1], rotation[2], rotation[3])
                         })
                         .collect::<Vec<_>>();
-                    println!("Rotations: {:?}", rotations);
                     transformations = TransformationSet::Rotations(rotations);
                 }
                 ReadOutputs::Scales(scales) => {
                     let scales = scales
                         .map(|scale| glm::vec3(scale[0], scale[1], scale[2]))
                         .collect::<Vec<_>>();
-                    println!("Scales: {:?}", scales);
                     transformations = TransformationSet::Scales(scales);
                 }
                 ReadOutputs::MorphTargetWeights(weights) => {
                     let morph_target_weights = weights.into_f32().collect::<Vec<_>>();
-                    println!("Morph Target Weights: {:?}", morph_target_weights);
                     transformations = TransformationSet::MorphTargetWeights(morph_target_weights);
                 }
             }
-            println!("TransformationSet: {:?}", transformations);
             channels.push(ChannelInfo {
                 node_index,
                 inputs,
                 transformations,
                 interpolation,
+                previous_key: 0,
+                previous_time: 0.0,
             });
         }
         animations.push(AnimationInfo { channels });
     }
-    println!("{:?}", animations);
     animations
 }
 
-fn prepare_nodes(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<NodeInfo> {
-    let mut nodes: Vec<NodeInfo> = Vec::new();
+// TODO: Make graph a collection of collections of graphs belonging to the scene (Vec<Vec<NodeGraph>>)
+// TODO: Load names for scenes and nodes
+fn prepare_scenes(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<SceneInfo> {
+    let mut scenes: Vec<SceneInfo> = Vec::new();
     for scene in gltf.scenes() {
+        let mut node_graphs: Vec<NodeGraph> = Vec::new();
         for node in scene.nodes() {
-            visit_children(&node, &buffers, &mut nodes);
+            let mut node_graph = NodeGraph::new();
+            visit_children(&node, &buffers, &mut node_graph, NodeIndex::new(0_usize));
+            node_graphs.push(node_graph);
         }
+        scenes.push(SceneInfo { node_graphs });
     }
-    nodes
+    scenes
 }
 
 fn prepare_textures_gl(textures: &[gltf::image::Data]) -> Vec<u32> {
@@ -265,16 +301,22 @@ fn prepare_textures_gl(textures: &[gltf::image::Data]) -> Vec<u32> {
 fn visit_children(
     node: &gltf::Node,
     buffers: &[gltf::buffer::Data],
-    visited_nodes: &mut Vec<NodeInfo>,
+    node_graph: &mut NodeGraph,
+    parent_index: NodeIndex,
 ) {
-    visited_nodes.push(NodeInfo {
+    let node_info = NodeInfo {
         transform: determine_transform(node),
         mesh: load_mesh(node, buffers),
         index: node.index(),
-    });
+    };
+
+    let node_index = node_graph.add_node(node_info);
+    if parent_index != node_index {
+        node_graph.add_edge(parent_index, node_index, ());
+    }
 
     for child in node.children() {
-        visit_children(&child, buffers, visited_nodes);
+        visit_children(&child, buffers, node_graph, node_index);
     }
 }
 
@@ -302,16 +344,15 @@ fn load_mesh(node: &gltf::Node, buffers: &[gltf::buffer::Data]) -> Option<MeshIn
     }
 }
 
+// TODO: Change this to determine transformations
 fn determine_transform(node: &gltf::Node) -> glm::Mat4 {
     let transform = node.transform().matrix();
     let mut matrix_data = Vec::new();
-
     for row in transform.iter() {
         for item in row.iter() {
             matrix_data.push(*item);
         }
     }
-
     glm::make_mat4(matrix_data.as_slice())
 }
 

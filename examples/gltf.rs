@@ -1,10 +1,7 @@
-use nalgebra::{Matrix4, Vector3};
 use nalgebra_glm as glm;
+use petgraph::{prelude::*, visit::Dfs};
 use sepia::app::*;
-use sepia::camera::*;
-use sepia::gltf::*;
-use sepia::shaderprogram::*;
-use sepia::skybox::*;
+use sepia::{camera::*, gltf::*, shaderprogram::*, skybox::*};
 use std::ptr;
 
 const ONES: &[GLfloat; 1] = &[1.0];
@@ -15,7 +12,11 @@ struct MainState {
     shader_program: ShaderProgram,
     camera: Camera,
     skybox: Skybox,
-    scene: Option<GltfScene>,
+    asset: Option<GltfAsset>,
+}
+
+impl MainState {
+    fn visit_nodes(&mut self, node: &mut NodeInfo, transforms: &mut Vec<glm::Mat4>) {}
 }
 
 impl State for MainState {
@@ -34,9 +35,7 @@ impl State for MainState {
             "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
 
-        self.camera.position_at(&glm::vec3(0.0, 35.0, 60.0));
-
-        self.scene = Some(GltfScene::from_file("assets/models/BoxAnimated.glb"));
+        self.asset = Some(GltfAsset::from_file("assets/models/BoxAnimated.glb"));
 
         unsafe {
             gl::Enable(gl::CULL_FACE);
@@ -65,9 +64,9 @@ impl State for MainState {
         let seconds = state_data.current_time;
 
         // TODO: Trigger animation
-        let scene = self.scene.as_mut().unwrap();
-        if !scene.animations.is_empty() {
-            self.scene.as_mut().unwrap().animate(seconds);
+        let asset = self.asset.as_mut().unwrap();
+        if !asset.animations.is_empty() {
+            self.asset.as_mut().unwrap().animate(seconds);
         }
 
         if state_data.window.get_key(glfw::Key::W) == glfw::Action::Press {
@@ -107,45 +106,96 @@ impl State for MainState {
         unsafe {
             gl::ClearBufferfv(gl::DEPTH, 0, ONES as *const f32);
         }
-        self.skybox.render(&projection, &self.camera.view_matrix());
-        let view = self.camera.view_matrix();
 
-        let scene = self.scene.as_ref().unwrap();
-        for node in scene.nodes.iter() {
-            if let Some(mesh) = &node.mesh {
-                for primitive_info in mesh.primitives.iter() {
-                    let material = scene.lookup_material(primitive_info.material_index);
-                    let pbr = material.pbr_metallic_roughness();
-                    let base_color = pbr.base_color_factor();
-                    if !scene.texture_ids.is_empty() {
-                        let base_color_index = pbr
-                            .base_color_texture()
-                            .expect("Couldn't get base color texture!")
-                            .texture()
-                            .index();
-                        unsafe {
-                            gl::BindTexture(gl::TEXTURE_2D, scene.texture_ids[base_color_index]);
+        let view = self.camera.view_matrix();
+        self.skybox.render(&projection, &view);
+
+        // TODO: Traverse a tree of nodes and keep track of node transforms
+        //       using the transforms for any child nodes they might have.
+
+        let asset = self.asset.as_mut().expect("Couldn't get asset!");
+        for scene in asset.scenes.iter() {
+            for graph in scene.node_graphs.iter() {
+                let mut transform_indices: Vec<NodeIndex> = Vec::new();
+                let mut dfs = Dfs::new(&graph, NodeIndex::new(0));
+                while let Some(nx) = dfs.next(&graph) {
+                    let mut incoming_walker = graph.neighbors_directed(nx, Incoming).detach();
+                    let mut outgoing_walker = graph.neighbors_directed(nx, Outgoing).detach();
+
+                    if let Some(parent) = incoming_walker.next_node(&graph) {
+                        while let Some(last_index) = transform_indices.last() {
+                            if *last_index == parent {
+                                break;
+                            }
+
+                            // Discard indices for transforms that are no longer needed
+                            transform_indices.pop();
                         }
                     }
-                    self.shader_program.activate();
 
-                    let mvp = projection
-                        * view
-                        * node.transform
-                        * Matrix4::new_translation(&Vector3::new(0.0, 0.0, -20.0));
-                    self.shader_program
-                        .set_uniform_matrix4x4("mvp_matrix", mvp.as_slice());
-                    self.shader_program
-                        .set_uniform_vec4("base_color", &base_color);
+                    // TODO: Combine transforms
+                    // TODO: this may need to be separate for rotate, scale, and translate
+                    //----
+                    // NOTE: THIS NEEDS TO BE FIXED for rendering to work
+                    let current_transform = transform_indices
+                        .iter()
+                        .fold(glm::Mat4::identity(), |transform, index| {
+                            transform * graph[*index].transform
+                        });
+                    // let transform = current_transform * graph[nx].transform;
+                    let transform = current_transform * graph[nx].transform;
+                    //----
 
-                    primitive_info.vao.bind();
-                    unsafe {
-                        gl::DrawElements(
-                            gl::TRIANGLES,
-                            primitive_info.num_indices,
-                            gl::UNSIGNED_INT,
-                            ptr::null(),
-                        );
+                    // If the node has children, store the index for children to use
+                    if outgoing_walker.next(&graph).is_some() {
+                        transform_indices.push(nx);
+                    }
+
+                    // Render with the given transform
+                    if let Some(mesh) = graph[nx].mesh.as_ref() {
+                        for primitive_info in mesh.primitives.iter() {
+                            let material = asset.lookup_material(primitive_info.material_index);
+                            let pbr = material.pbr_metallic_roughness();
+                            let base_color = pbr.base_color_factor();
+                            if !asset.texture_ids.is_empty() {
+                                let base_color_index = pbr
+                                    .base_color_texture()
+                                    .expect("Couldn't get base color texture!")
+                                    .texture()
+                                    .index();
+                                unsafe {
+                                    gl::BindTexture(
+                                        gl::TEXTURE_2D,
+                                        asset.texture_ids[base_color_index],
+                                    );
+                                }
+                            }
+                            self.shader_program.activate();
+
+                            let mvp = projection
+                                * view
+                                // TODO: REMOVE THIS, it's to try and see something
+                                * glm::scale(
+                                    &glm::Mat4::identity(),
+                                    &glm::vec3(100.0, 100.0, 100.0),
+                                )
+                                * transform;
+                            self.shader_program
+                                .set_uniform_matrix4x4("mvp_matrix", mvp.as_slice());
+
+                            self.shader_program
+                                .set_uniform_vec4("base_color", &base_color);
+
+                            primitive_info.vao.bind();
+                            unsafe {
+                                gl::DrawElements(
+                                    gl::TRIANGLES,
+                                    primitive_info.num_indices,
+                                    gl::UNSIGNED_INT,
+                                    ptr::null(),
+                                );
+                            }
+                        }
                     }
                 }
             }
