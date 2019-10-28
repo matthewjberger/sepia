@@ -111,7 +111,7 @@ pub fn animate_mesh(animations: &[AnimationInfo], mesh_info: &mut MeshInfo, seco
             println!("Rotate!");
         }
         TransformationSet::Scales(scales) => unimplemented!(),
-        TransformationSet::MorphTargetWeights(weights) => unimplemented!(),,
+        TransformationSet::MorphTargetWeights(weights) => unimplemented!(),
     }
 
     println!("Found animation!");

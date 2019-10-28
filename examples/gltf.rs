@@ -34,7 +34,13 @@ impl State for MainState {
             "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
 
-        self.scene = Some(GltfScene::from_file("assets/models/BoxAnimated.glb"));
+        self.scene = Some(GltfScene::from_file("assets/models/nanosuit.glb"));
+
+        unsafe {
+            gl::Enable(gl::CULL_FACE);
+            gl::Enable(gl::DEPTH_TEST);
+            gl::DepthFunc(gl::LEQUAL);
+        }
     }
 
     fn handle_events(&mut self, state_data: &mut StateData, event: &glfw::WindowEvent) {
