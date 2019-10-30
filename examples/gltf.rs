@@ -15,10 +15,6 @@ struct MainState {
     asset: Option<GltfAsset>,
 }
 
-impl MainState {
-    fn visit_nodes(&mut self, node: &mut NodeInfo, transforms: &mut Vec<glm::Mat4>) {}
-}
-
 impl State for MainState {
     fn initialize(&mut self) {
         self.shader_program = ShaderProgram::new();
@@ -61,9 +57,8 @@ impl State for MainState {
     }
 
     fn update(&mut self, state_data: &mut StateData) {
+        // Update animation transforms
         let seconds = state_data.current_time;
-
-        // TODO: Trigger animation
         let asset = self.asset.as_mut().unwrap();
         if !asset.animations.is_empty() {
             self.asset.as_mut().unwrap().animate(seconds);
@@ -110,17 +105,17 @@ impl State for MainState {
         let view = self.camera.view_matrix();
         self.skybox.render(&projection, &view);
 
-        // TODO: Traverse a tree of nodes and keep track of node transforms
-        //       using the transforms for any child nodes they might have.
-
+        // Render the asset's scene graph
         let asset = self.asset.as_mut().expect("Couldn't get asset!");
         for scene in asset.scenes.iter() {
             for graph in scene.node_graphs.iter() {
                 let mut transform_indices: Vec<NodeIndex> = Vec::new();
                 let mut dfs = Dfs::new(&graph, NodeIndex::new(0));
-                while let Some(nx) = dfs.next(&graph) {
-                    let mut incoming_walker = graph.neighbors_directed(nx, Incoming).detach();
-                    let mut outgoing_walker = graph.neighbors_directed(nx, Outgoing).detach();
+                while let Some(node_index) = dfs.next(&graph) {
+                    let mut incoming_walker =
+                        graph.neighbors_directed(node_index, Incoming).detach();
+                    let mut outgoing_walker =
+                        graph.neighbors_directed(node_index, Outgoing).detach();
 
                     if let Some(parent) = incoming_walker.next_node(&graph) {
                         while let Some(last_index) = transform_indices.last() {
@@ -133,26 +128,26 @@ impl State for MainState {
                         }
                     }
 
-                    // TODO: Combine transforms
-                    // TODO: this may need to be separate for rotate, scale, and translate
-                    //----
-                    // NOTE: THIS NEEDS TO BE FIXED for rendering to work
-                    let current_transform = transform_indices
-                        .iter()
-                        .fold(glm::Mat4::identity(), |transform, index| {
-                            transform * graph[*index].transform
-                        });
-                    // let transform = current_transform * graph[nx].transform;
-                    let transform = current_transform * graph[nx].transform;
-                    //----
+                    let current_transform =
+                        transform_indices
+                            .iter()
+                            .fold(glm::Mat4::identity(), |transform, index| {
+                                transform
+                                    * graph[*index].transform
+                                    * graph[*index].animation_transform
+                            });
+
+                    let transform = current_transform
+                        * graph[node_index].animation_transform
+                        * graph[node_index].transform;
 
                     // If the node has children, store the index for children to use
                     if outgoing_walker.next(&graph).is_some() {
-                        transform_indices.push(nx);
+                        transform_indices.push(node_index);
                     }
 
                     // Render with the given transform
-                    if let Some(mesh) = graph[nx].mesh.as_ref() {
+                    if let Some(mesh) = graph[node_index].mesh.as_ref() {
                         for primitive_info in mesh.primitives.iter() {
                             let material = asset.lookup_material(primitive_info.material_index);
                             let pbr = material.pbr_metallic_roughness();
@@ -172,14 +167,7 @@ impl State for MainState {
                             }
                             self.shader_program.activate();
 
-                            let mvp = projection
-                                * view
-                                // TODO: REMOVE THIS, it's to try and see something
-                                * glm::scale(
-                                    &glm::Mat4::identity(),
-                                    &glm::vec3(100.0, 100.0, 100.0),
-                                )
-                                * transform;
+                            let mvp = projection * view * transform;
                             self.shader_program
                                 .set_uniform_matrix4x4("mvp_matrix", mvp.as_slice());
 
