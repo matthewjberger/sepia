@@ -13,6 +13,7 @@ struct MainState {
     camera: Camera,
     skybox: Skybox,
     asset: Option<GltfAsset>,
+    animation_time: f32,
 }
 
 impl State for MainState {
@@ -31,7 +32,9 @@ impl State for MainState {
             "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
 
-        self.asset = Some(GltfAsset::from_file("assets/models/BoxAnimated.glb"));
+        self.asset = Some(GltfAsset::from_file(
+            "../glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
+        ));
 
         unsafe {
             gl::Enable(gl::CULL_FACE);
@@ -58,10 +61,21 @@ impl State for MainState {
 
     fn update(&mut self, state_data: &mut StateData) {
         // Update animation transforms
-        let seconds = state_data.current_time;
+        // let seconds = state_data.current_time;
         let asset = self.asset.as_mut().unwrap();
         if !asset.animations.is_empty() {
-            self.asset.as_mut().unwrap().animate(seconds);
+            self.asset.as_mut().unwrap().animate(self.animation_time);
+        }
+
+        if state_data.window.get_key(glfw::Key::Left) == glfw::Action::Press {
+            self.animation_time -= 0.01;
+            if self.animation_time < 0.0 {
+                self.animation_time = 0.0;
+            }
+        }
+
+        if state_data.window.get_key(glfw::Key::Right) == glfw::Action::Press {
+            self.animation_time += 0.01;
         }
 
         if state_data.window.get_key(glfw::Key::W) == glfw::Action::Press {
@@ -94,7 +108,7 @@ impl State for MainState {
     fn render(&mut self, state_data: &mut StateData) {
         let projection = glm::perspective(
             state_data.aspect_ratio,
-            50_f32.to_degrees(),
+            90_f32.to_radians(),
             0.1_f32,
             100000_f32,
         );
@@ -122,7 +136,6 @@ impl State for MainState {
                             if *last_index == parent {
                                 break;
                             }
-
                             // Discard indices for transforms that are no longer needed
                             transform_indices.pop();
                         }
@@ -134,12 +147,12 @@ impl State for MainState {
                             .fold(glm::Mat4::identity(), |transform, index| {
                                 transform
                                     * graph[*index].transform
-                                    * graph[*index].animation_transform
+                                    * graph[*index].animation_transform.matrix()
                             });
 
                     let transform = current_transform
-                        * graph[node_index].animation_transform
-                        * graph[node_index].transform;
+                        * graph[node_index].transform
+                        * graph[node_index].animation_transform.matrix();
 
                     // If the node has children, store the index for children to use
                     if outgoing_walker.next(&graph).is_some() {

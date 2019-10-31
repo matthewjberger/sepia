@@ -32,8 +32,8 @@ impl Camera {
             right: glm::vec3(0.0, 0.0, 0.0),
             front: glm::vec3(0.0, 0.0, -1.0),
             up: glm::vec3(0.0, 0.0, 0.0),
-            world_up: glm::vec3(0.0, -1.0, 0.0),
-            speed: 20.0,
+            world_up: glm::vec3(0.0, 1.0, 0.0),
+            speed: 5.0,
             sensitivity: 0.05,
             yaw_degrees: -90.0,
             pitch_degrees: 0.0,
@@ -68,8 +68,8 @@ impl Camera {
         match direction {
             CameraDirection::Forward => self.position += self.front * velocity,
             CameraDirection::Backward => self.position -= self.front * velocity,
-            CameraDirection::Left => self.position += self.right * velocity,
-            CameraDirection::Right => self.position -= self.right * velocity,
+            CameraDirection::Left => self.position -= self.right * velocity,
+            CameraDirection::Right => self.position += self.right * velocity,
         };
     }
 

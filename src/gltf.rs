@@ -5,9 +5,8 @@ pub use gl::types::*;
 use gltf::{
     animation::{util::ReadOutputs, Interpolation},
     image::Format,
-    scene::Transform,
 };
-use nalgebra::{Quaternion, UnitQuaternion};
+use nalgebra::{Matrix4, Quaternion, UnitQuaternion};
 use nalgebra_glm as glm;
 use petgraph::{
     graph::{Graph, NodeIndex},
@@ -43,11 +42,33 @@ impl Vertex {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct Transform {
+    translation: Option<glm::Vec3>,
+    rotation: Option<glm::Quat>,
+    scale: Option<glm::Vec3>,
+}
+
+impl Transform {
+    pub fn matrix(&self) -> glm::Mat4 {
+        let mut matrix = glm::Mat4::identity();
+        if let Some(translation) = self.translation {
+            matrix *= Matrix4::new_translation(&translation);
+        }
+        if let Some(rotation) = self.rotation {
+            matrix *= Matrix4::from(UnitQuaternion::from_quaternion(rotation));
+        }
+        if let Some(scale) = self.scale {
+            matrix *= Matrix4::new_nonuniform_scaling(&scale);
+        }
+        matrix
+    }
+}
+
 #[derive(Debug)]
 pub struct NodeInfo {
-    // pub transform: Transform,
     pub transform: glm::Mat4,
-    pub animation_transform: glm::Mat4,
+    pub animation_transform: Transform,
     pub mesh: Option<MeshInfo>,
     index: usize,
 }
@@ -133,7 +154,8 @@ impl GltfAsset {
                                 channel.previous_time = time;
 
                                 let mut next_key: usize = 0;
-                                for index in channel.previous_key..channel.inputs.len() {
+                                // for index in channel.previous_key..channel.inputs.len() {
+                                for index in 0..channel.inputs.len() {
                                     let index = index as usize;
                                     if time <= channel.inputs[index] {
                                         next_key =
@@ -148,11 +170,16 @@ impl GltfAsset {
                                 let normalized_time =
                                     (time - channel.inputs[channel.previous_key]) / key_delta;
 
+                                // println!("");
+                                // println!("-------------------");
                                 // println!("seconds: {}", seconds);
                                 // println!("time: {}", time);
                                 // println!("previous_key: {}", channel.previous_key);
                                 // println!("next_key: {}", next_key);
                                 // println!("normalized_time: {}", normalized_time);
+                                // println!("inputs: {:#?}", channel.inputs);
+                                // println!("-------------------");
+                                // println!("");
 
                                 // TODO: Interpolate with other methods
                                 // Only Linear interpolation is used for now
@@ -163,32 +190,29 @@ impl GltfAsset {
                                         let translation = start.lerp(&end, normalized_time);
                                         let translation_vec =
                                             glm::make_vec3(translation.as_slice());
-                                        graph[node_index].animation_transform = glm::translate(
-                                            &graph[node_index].transform,
-                                            &translation_vec,
-                                        );
+                                        graph[node_index].animation_transform.translation =
+                                            Some(translation_vec);
                                     }
                                     TransformationSet::Rotations(rotations) => {
                                         let start = rotations[channel.previous_key];
                                         let end = rotations[next_key];
-                                        let rotation = start.lerp(&end, normalized_time);
+                                        let start_quat =
+                                            Quaternion::new(start[3], start[0], start[1], start[2]);
+                                        let end_quat =
+                                            Quaternion::new(end[3], end[0], end[1], end[2]);
                                         let rotation_quat =
-                                            UnitQuaternion::from_quaternion(Quaternion::new(
-                                                rotation[0],
-                                                rotation[1],
-                                                rotation[2],
-                                                rotation[3],
-                                            ));
-                                        graph[node_index].animation_transform = glm::rotate(
-                                            &graph[node_index].transform,
-                                            rotation_quat.angle(),
-                                            rotation_quat
-                                                .axis()
-                                                .expect("Rotation quaternion has a zero rotation!")
-                                                .as_ref(),
-                                        );
+                                            start_quat.lerp(&end_quat, normalized_time);
+                                        graph[node_index].animation_transform.rotation =
+                                            Some(rotation_quat);
                                     }
-                                    TransformationSet::Scales(scales) => unimplemented!(),
+                                    TransformationSet::Scales(scales) => {
+                                        let start = scales[channel.previous_key];
+                                        let end = scales[next_key];
+                                        let scale = start.lerp(&end, normalized_time);
+                                        let scale_vec = glm::make_vec3(scale.as_slice());
+                                        graph[node_index].animation_transform.scale =
+                                            Some(scale_vec);
+                                    }
                                     TransformationSet::MorphTargetWeights(weights) => unimplemented!(),
                                 }
 
@@ -330,7 +354,7 @@ fn visit_children(
 ) {
     let node_info = NodeInfo {
         transform: determine_transform(node),
-        animation_transform: glm::Mat4::identity(),
+        animation_transform: Transform::default(),
         mesh: load_mesh(node, buffers),
         index: node.index(),
     };
