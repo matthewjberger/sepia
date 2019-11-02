@@ -32,9 +32,7 @@ impl State for MainState {
             "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
 
-        self.asset = Some(GltfAsset::from_file(
-            "../glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
-        ));
+        self.asset = Some(GltfAsset::from_file("assets/models/BoxAnimated.glb"));
 
         unsafe {
             gl::Enable(gl::CULL_FACE);
@@ -162,20 +160,24 @@ impl State for MainState {
                     // Render with the given transform
                     if let Some(mesh) = graph[node_index].mesh.as_ref() {
                         for primitive_info in mesh.primitives.iter() {
-                            let material = asset.lookup_material(primitive_info.material_index);
-                            let pbr = material.pbr_metallic_roughness();
-                            let base_color = pbr.base_color_factor();
-                            if !asset.texture_ids.is_empty() {
-                                let base_color_index = pbr
-                                    .base_color_texture()
-                                    .expect("Couldn't get base color texture!")
-                                    .texture()
-                                    .index();
-                                unsafe {
-                                    gl::BindTexture(
-                                        gl::TEXTURE_2D,
-                                        asset.texture_ids[base_color_index],
-                                    );
+                            if let Some(material_index) = primitive_info.material_index {
+                                let material = asset.lookup_material(material_index);
+                                let pbr = material.pbr_metallic_roughness();
+                                let base_color = pbr.base_color_factor();
+                                if !asset.texture_ids.is_empty() {
+                                    if let Some(base_color_texture_info) = pbr.base_color_texture()
+                                    {
+                                        unsafe {
+                                            gl::BindTexture(
+                                                gl::TEXTURE_2D,
+                                                asset.texture_ids
+                                                    [base_color_texture_info.texture().index()],
+                                            );
+                                        }
+                                    }
+
+                                    self.shader_program
+                                        .set_uniform_vec4("base_color", &base_color);
                                 }
                             }
                             self.shader_program.activate();
@@ -183,9 +185,6 @@ impl State for MainState {
                             let mvp = projection * view * transform;
                             self.shader_program
                                 .set_uniform_matrix4x4("mvp_matrix", mvp.as_slice());
-
-                            self.shader_program
-                                .set_uniform_vec4("base_color", &base_color);
 
                             primitive_info.vao.bind();
                             unsafe {

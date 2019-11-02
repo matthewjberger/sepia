@@ -82,7 +82,7 @@ pub struct MeshInfo {
 pub struct PrimitiveInfo {
     pub vao: VertexArrayObject,
     pub num_indices: i32,
-    pub material_index: i32,
+    pub material_index: Option<usize>,
 }
 
 #[derive(Debug)]
@@ -127,10 +127,10 @@ impl GltfAsset {
         }
     }
 
-    pub fn lookup_material(&self, index: i32) -> gltf::Material {
+    pub fn lookup_material(&self, index: usize) -> gltf::Material {
         self.gltf
             .materials()
-            .nth(index as usize)
+            .nth(index)
             .expect("Couldn't get material!")
     }
 
@@ -169,17 +169,6 @@ impl GltfAsset {
                                     channel.inputs[next_key] - channel.inputs[channel.previous_key];
                                 let normalized_time =
                                     (time - channel.inputs[channel.previous_key]) / key_delta;
-
-                                // println!("");
-                                // println!("-------------------");
-                                // println!("seconds: {}", seconds);
-                                // println!("time: {}", time);
-                                // println!("previous_key: {}", channel.previous_key);
-                                // println!("next_key: {}", next_key);
-                                // println!("normalized_time: {}", normalized_time);
-                                // println!("inputs: {:#?}", channel.inputs);
-                                // println!("-------------------");
-                                // println!("");
 
                                 // TODO: Interpolate with other methods
                                 // Only Linear interpolation is used for now
@@ -374,13 +363,8 @@ fn load_mesh(node: &gltf::Node, buffers: &[gltf::buffer::Data]) -> Option<MeshIn
         let mut all_primitive_info = Vec::new();
         for primitive in mesh.primitives() {
             let (vertices, indices) = read_buffer_data(&primitive, &buffers);
-
-            let material_index = primitive
-                .material()
-                .index()
-                .expect("Couldn't get material index!") as i32;
-
-            let mut primitive_info = prepare_primitive_gl(&vertices, &indices, material_index);
+            let mut primitive_info = prepare_primitive_gl(&vertices, &indices);
+            let material_index = primitive.material().index();
             primitive_info.material_index = material_index;
             all_primitive_info.push(primitive_info);
         }
@@ -442,11 +426,7 @@ fn read_buffer_data(
     (vertices, indices)
 }
 
-fn prepare_primitive_gl(
-    vertices: &[Vertex],
-    indices: &[u32],
-    material_index: i32,
-) -> PrimitiveInfo {
+fn prepare_primitive_gl(vertices: &[Vertex], indices: &[u32]) -> PrimitiveInfo {
     let vao = VertexArrayObject::new();
     let mut vbo = Buffer::new(BufferKind::Array);
     let mut ibo = Buffer::new(BufferKind::Element);
@@ -464,16 +444,6 @@ fn prepare_primitive_gl(
     PrimitiveInfo {
         vao,
         num_indices: indices.len() as i32,
-        material_index,
+        material_index: None,
     }
 }
-
-// fn decompose_transform() {
-// }
-
-// impl From<Transform> for glm::Mat4 {
-//     fn from(transform: Transform) -> Self {
-//         glm::
-//         CliError::ParseError(error)
-//     }
-// }
