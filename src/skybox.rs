@@ -63,7 +63,7 @@ pub struct Skybox {
     vao: VertexArrayObject,
     vbo: Buffer,
     shader_program: ShaderProgram,
-    texture: Texture,
+    pub texture: Texture,
 }
 
 impl Skybox {

@@ -20,8 +20,8 @@ impl State for MainState {
     fn initialize(&mut self) {
         self.shader_program = ShaderProgram::new();
         self.shader_program
-            .vertex_shader_file("assets/shaders/gltf/gltf.vs.glsl")
-            .fragment_shader_file("assets/shaders/gltf/gltf.fs.glsl")
+            .vertex_shader_file("assets/shaders/envmap/envmap.vs.glsl")
+            .fragment_shader_file("assets/shaders/envmap/envmap.fs.glsl")
             .link();
         self.skybox = Skybox::new(&[
             "assets/textures/skyboxes/bluemountains/right.jpg".to_string(),
@@ -32,7 +32,7 @@ impl State for MainState {
             "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
 
-        self.asset = Some(GltfAsset::from_file("assets/models/BoxAnimated.glb"));
+        self.asset = Some(GltfAsset::from_file("assets/models/nanosuit.glb"));
 
         unsafe {
             gl::Enable(gl::CULL_FACE);
@@ -106,7 +106,7 @@ impl State for MainState {
     fn render(&mut self, state_data: &mut StateData) {
         let projection = glm::perspective(
             state_data.aspect_ratio,
-            90_f32.to_radians(),
+            80_f32.to_radians(),
             0.1_f32,
             100000_f32,
         );
@@ -167,24 +167,33 @@ impl State for MainState {
                                 if !asset.texture_ids.is_empty() {
                                     if let Some(base_color_texture_info) = pbr.base_color_texture()
                                     {
-                                        unsafe {
-                                            gl::BindTexture(
-                                                gl::TEXTURE_2D,
-                                                asset.texture_ids
-                                                    [base_color_texture_info.texture().index()],
-                                            );
-                                        }
+                                        // unsafe {
+                                        //     gl::BindTexture(
+                                        //         gl::TEXTURE_2D,
+                                        //         asset.texture_ids
+                                        //             [base_color_texture_info.texture().index()],
+                                        //     );
+                                        // }
                                     }
 
-                                    self.shader_program
-                                        .set_uniform_vec4("base_color", &base_color);
+                                    // self.shader_program
+                                    //     .set_uniform_vec4("base_color", &base_color);
                                 }
                             }
+                            self.skybox.texture.bind(0);
                             self.shader_program.activate();
 
-                            let mvp = projection * view * transform;
                             self.shader_program
-                                .set_uniform_matrix4x4("mvp_matrix", mvp.as_slice());
+                                .set_uniform_vec3("camera_pos", self.camera.position.as_slice());
+
+                            self.shader_program
+                                .set_uniform_matrix4x4("model", transform.as_slice());
+
+                            self.shader_program
+                                .set_uniform_matrix4x4("view", view.as_slice());
+
+                            self.shader_program
+                                .set_uniform_matrix4x4("projection", projection.as_slice());
 
                             primitive_info.vao.bind();
                             unsafe {

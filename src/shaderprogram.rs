@@ -125,6 +125,14 @@ impl ShaderProgram {
         }
     }
 
+    pub fn set_uniform_vec3(&self, name: &str, data: &[GLfloat]) {
+        self.activate();
+        let location = self.uniform_location(name);
+        unsafe {
+            gl::Uniform3fv(location, 1, data.as_ptr());
+        }
+    }
+
     fn attach_shader_file(&mut self, kind: ShaderKind, path: &str) -> &mut Self {
         let mut shader = Shader::new(kind);
         shader.load_file(path);
