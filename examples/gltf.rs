@@ -21,7 +21,8 @@ impl State for MainState {
         self.shader_program = ShaderProgram::new();
         self.shader_program
             .vertex_shader_file("assets/shaders/envmap/envmap.vs.glsl")
-            .fragment_shader_file("assets/shaders/envmap/envmap.fs.glsl")
+            .fragment_shader_file("assets/shaders/envmap/mirror.fs.glsl")
+            // .fragment_shader_file("assets/shaders/envmap/glass.fs.glsl")
             .link();
         self.skybox = Skybox::new(&[
             "assets/textures/skyboxes/bluemountains/right.jpg".to_string(),
@@ -114,6 +115,7 @@ impl State for MainState {
             gl::ClearBufferfv(gl::DEPTH, 0, ONES as *const f32);
         }
 
+        // TODO: render the skybox *last*
         let view = self.camera.view_matrix();
         self.skybox.render(&projection, &view);
 
@@ -182,6 +184,8 @@ impl State for MainState {
                             }
                             self.skybox.texture.bind(0);
                             self.shader_program.activate();
+
+                            // TODO: Compute normal matrix
 
                             self.shader_program
                                 .set_uniform_vec3("camera_pos", self.camera.position.as_slice());
