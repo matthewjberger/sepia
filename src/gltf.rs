@@ -154,8 +154,7 @@ impl GltfAsset {
                                 channel.previous_time = time;
 
                                 let mut next_key: usize = 0;
-                                // for index in channel.previous_key..channel.inputs.len() {
-                                for index in 0..channel.inputs.len() {
+                                for index in channel.previous_key..channel.inputs.len() {
                                     let index = index as usize;
                                     if time <= channel.inputs[index] {
                                         next_key =
