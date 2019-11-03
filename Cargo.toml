@@ -14,6 +14,7 @@ nalgebra = "0.19.0"
 nalgebra-glm = "0.5.0"
 nphysics3d = "0.13.0"
 petgraph = "0.4.13"
+specs = { version = "0.15.1", features = ["specs-derive"] }
 
 [dependencies.gltf]
 version = "0.14.0"
