@@ -2,7 +2,7 @@ pub use gl::types::*;
 pub use glfw::{Action, Context, CursorMode, Key, WindowEvent};
 use std::{cmp, sync::mpsc::Receiver};
 
-const BACKGROUND_COLOR: &[GLfloat; 4] = &[0.0, 0.25, 0.0, 1.0];
+const BACKGROUND_COLOR: &[GLfloat; 4] = &[0.25, 0.25, 0.25, 1.0];
 
 pub struct StateData<'a> {
     pub window: &'a mut glfw::Window,

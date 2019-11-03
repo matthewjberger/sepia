@@ -10,6 +10,7 @@ const ONES: &[GLfloat; 1] = &[1.0];
 #[derive(Default)]
 struct MainState {
     shader_program: ShaderProgram,
+    lamp_program: ShaderProgram,
     camera: Camera,
     skybox: Skybox,
     asset: Option<GltfAsset>,
@@ -20,9 +21,13 @@ impl State for MainState {
     fn initialize(&mut self) {
         self.shader_program = ShaderProgram::new();
         self.shader_program
-            .vertex_shader_file("assets/shaders/envmap/envmap.vs.glsl")
-            .fragment_shader_file("assets/shaders/envmap/mirror.fs.glsl")
-            // .fragment_shader_file("assets/shaders/envmap/glass.fs.glsl")
+            .vertex_shader_file("assets/shaders/gltf/lit.vs.glsl")
+            .fragment_shader_file("assets/shaders/gltf/lit.fs.glsl")
+            .link();
+        self.lamp_program = ShaderProgram::new();
+        self.lamp_program
+            .vertex_shader_file("assets/shaders/gltf/lamp.vs.glsl")
+            .fragment_shader_file("assets/shaders/gltf/lamp.fs.glsl")
             .link();
         self.skybox = Skybox::new(&[
             "assets/textures/skyboxes/bluemountains/right.jpg".to_string(),
@@ -33,7 +38,9 @@ impl State for MainState {
             "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
 
-        self.asset = Some(GltfAsset::from_file("assets/models/nanosuit.glb"));
+        self.asset = Some(GltfAsset::from_file(
+            "../glTF-Sample-Models/2.0/Cube/glTF/Cube.gltf",
+        ));
 
         unsafe {
             gl::Enable(gl::CULL_FACE);
@@ -169,44 +176,86 @@ impl State for MainState {
                                 if !asset.texture_ids.is_empty() {
                                     if let Some(base_color_texture_info) = pbr.base_color_texture()
                                     {
-                                        // unsafe {
-                                        //     gl::BindTexture(
-                                        //         gl::TEXTURE_2D,
-                                        //         asset.texture_ids
-                                        //             [base_color_texture_info.texture().index()],
-                                        //     );
-                                        // }
+                                        unsafe {
+                                            gl::BindTexture(
+                                                gl::TEXTURE_2D,
+                                                asset.texture_ids
+                                                    [base_color_texture_info.texture().index()],
+                                            );
+                                        }
                                     }
 
-                                    // self.shader_program
-                                    //     .set_uniform_vec4("base_color", &base_color);
+                                    self.shader_program
+                                        .set_uniform_vec4("base_color", &base_color);
                                 }
                             }
-                            self.skybox.texture.bind(0);
-                            self.shader_program.activate();
 
                             // TODO: Compute normal matrix
 
-                            self.shader_program
-                                .set_uniform_vec3("camera_pos", self.camera.position.as_slice());
+                            // Light properties
+                            // let lamp_color = glm::vec3(1.0, 0.5, 0.31);
+                            let lamp_color = glm::vec3(
+                                1.0 * state_data.current_time.sin(),
+                                0.75,
+                                1.0 * state_data.current_time.cos(),
+                            );
+                            let lamp_position = glm::vec3(
+                                2.0 * state_data.current_time.sin(),
+                                2.0 * state_data.current_time.sin()
+                                    + 2.0 * state_data.current_time.cos(),
+                                2.0 * state_data.current_time.cos(),
+                            );
 
-                            self.shader_program
-                                .set_uniform_matrix4x4("model", transform.as_slice());
+                            // Draw the model
+                            {
+                                self.shader_program.activate();
+                                self.shader_program
+                                    .set_uniform_vec3("light_pos", lamp_position.as_slice());
+                                self.shader_program
+                                    .set_uniform_vec3("light_color", lamp_color.as_slice());
+                                self.shader_program
+                                    .set_uniform_vec3("view_pos", self.camera.position.as_slice());
+                                self.shader_program
+                                    .set_uniform_matrix4x4("model", transform.as_slice());
+                                self.shader_program
+                                    .set_uniform_matrix4x4("view", view.as_slice());
+                                self.shader_program
+                                    .set_uniform_matrix4x4("projection", projection.as_slice());
+                                primitive_info.vao.bind();
+                                unsafe {
+                                    gl::DrawElements(
+                                        gl::TRIANGLES,
+                                        primitive_info.num_indices,
+                                        gl::UNSIGNED_INT,
+                                        ptr::null(),
+                                    );
+                                }
+                            }
 
-                            self.shader_program
-                                .set_uniform_matrix4x4("view", view.as_slice());
-
-                            self.shader_program
-                                .set_uniform_matrix4x4("projection", projection.as_slice());
-
-                            primitive_info.vao.bind();
-                            unsafe {
-                                gl::DrawElements(
-                                    gl::TRIANGLES,
-                                    primitive_info.num_indices,
-                                    gl::UNSIGNED_INT,
-                                    ptr::null(),
-                                );
+                            {
+                                // Draw the same model, but as a lamp
+                                let lamp_mvp = projection
+                                    * view
+                                    * glm::translate(&glm::Mat4::identity(), &lamp_position)
+                                    * glm::scale(
+                                        &glm::Mat4::identity(),
+                                        &glm::vec3(0.25, 0.25, 0.25),
+                                    )
+                                    * transform;
+                                self.lamp_program.activate();
+                                self.lamp_program
+                                    .set_uniform_vec3("lamp_color", lamp_color.as_slice());
+                                self.lamp_program
+                                    .set_uniform_matrix4x4("mvp_matrix", lamp_mvp.as_slice());
+                                primitive_info.vao.bind();
+                                unsafe {
+                                    gl::DrawElements(
+                                        gl::TRIANGLES,
+                                        primitive_info.num_indices,
+                                        gl::UNSIGNED_INT,
+                                        ptr::null(),
+                                    );
+                                }
                             }
                         }
                     }
