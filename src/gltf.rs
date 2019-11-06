@@ -8,10 +8,7 @@ use gltf::{
 };
 use nalgebra::{Matrix4, Quaternion, UnitQuaternion};
 use nalgebra_glm as glm;
-use petgraph::{
-    graph::{Graph, NodeIndex},
-    visit::Dfs,
-};
+use petgraph::graph::{Graph, NodeIndex};
 
 // TODO: Load bounding volumes using ncollide
 
@@ -201,7 +198,7 @@ impl GltfAsset {
                                         graph[node_index].animation_transform.scale =
                                             Some(scale_vec);
                                     }
-                                    TransformationSet::MorphTargetWeights(weights) => unimplemented!(),
+                                    TransformationSet::MorphTargetWeights(_weights) => unimplemented!(),
                                 }
 
                                 break;
@@ -215,14 +212,14 @@ impl GltfAsset {
 }
 
 // TODO: Write this method for vec3's and vec4's
-fn interpolate(interpolation: Interpolation) {
-    match interpolation {
-        Interpolation::Linear => {}
-        Interpolation::Step => {}
-        Interpolation::CatmullRomSpline => {}
-        Interpolation::CubicSpline => {}
-    }
-}
+// fn interpolate(interpolation: Interpolation) {
+//     match interpolation {
+//         Interpolation::Linear => {}
+//         Interpolation::Step => {}
+//         Interpolation::CatmullRomSpline => {}
+//         Interpolation::CubicSpline => {}
+//     }
+// }
 
 fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<AnimationInfo> {
     // TODO: load names if present as well
