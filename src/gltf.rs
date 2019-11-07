@@ -198,7 +198,9 @@ impl GltfAsset {
                                         graph[node_index].animation_transform.scale =
                                             Some(scale_vec);
                                     }
-                                    TransformationSet::MorphTargetWeights(_weights) => unimplemented!(),
+                                    TransformationSet::MorphTargetWeights(_weights) => {
+                                        unimplemented!()
+                                    }
                                 }
 
                                 break;
@@ -237,24 +239,20 @@ fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
             match outputs {
                 ReadOutputs::Translations(translations) => {
                     let translations = translations
-                        .map(|translation| {
-                            glm::vec3(translation[0], translation[1], translation[2])
-                        })
+                        .map(|translation| glm::Vec3::from(translation))
                         .collect::<Vec<_>>();
                     transformations = TransformationSet::Translations(translations);
                 }
                 ReadOutputs::Rotations(rotations) => {
                     let rotations = rotations
                         .into_f32()
-                        .map(|rotation| {
-                            glm::vec4(rotation[0], rotation[1], rotation[2], rotation[3])
-                        })
+                        .map(|rotation| glm::Vec4::from(rotation))
                         .collect::<Vec<_>>();
                     transformations = TransformationSet::Rotations(rotations);
                 }
                 ReadOutputs::Scales(scales) => {
                     let scales = scales
-                        .map(|scale| glm::vec3(scale[0], scale[1], scale[2]))
+                        .map(|scale| glm::Vec3::from(scale))
                         .collect::<Vec<_>>();
                     transformations = TransformationSet::Scales(scales);
                 }

@@ -7,6 +7,7 @@ use std::ptr;
 const ONES: &[GLfloat; 1] = &[1.0];
 
 // TODO: Eventually remove default derivations where not necessary
+// TODO: Add gl::Delete calls
 #[derive(Default)]
 struct MainState {
     shader_program: ShaderProgram,
@@ -15,6 +16,7 @@ struct MainState {
     skybox: Skybox,
     asset: Option<GltfAsset>,
     animation_time: f32,
+    fbo: u32,
 }
 
 impl State for MainState {
@@ -38,14 +40,65 @@ impl State for MainState {
             "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
 
-        self.asset = Some(GltfAsset::from_file(
-            "../glTF-Sample-Models/2.0/Cube/glTF/Cube.gltf",
-        ));
+        self.asset = Some(GltfAsset::from_file("assets/models/Box.glb"));
 
         unsafe {
             gl::Enable(gl::CULL_FACE);
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthFunc(gl::LEQUAL);
+        }
+
+        let mut rbo = 0;
+        let mut texcolorbuffer = 0;
+        unsafe {
+            // Create an fbo
+            gl::GenFramebuffers(1, &mut self.fbo);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, self.fbo);
+
+            // Create a texture to use as the colorbuffer
+            gl::GenTextures(1, &mut texcolorbuffer);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGB as i32,
+                800,
+                600,
+                0,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+                ptr::null(),
+            );
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+
+            // Attach the colorbuffer to the fbo
+            gl::FramebufferTexture2D(
+                gl::FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                texcolorbuffer,
+                0,
+            );
+
+            // Create a renderbuffer
+            gl::GenRenderbuffers(1, &mut rbo);
+            gl::BindRenderbuffer(gl::RENDERBUFFER, rbo);
+            gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH24_STENCIL8, 800, 600);
+            gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
+
+            gl::FramebufferRenderbuffer(
+                gl::FRAMEBUFFER,
+                gl::DEPTH_STENCIL_ATTACHMENT,
+                gl::RENDERBUFFER,
+                rbo,
+            );
+
+            if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
+                panic!("Framebuffer is not complete!")
+            }
+
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
     }
 
