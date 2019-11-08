@@ -238,22 +238,18 @@ fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
             let transformations: TransformationSet;
             match outputs {
                 ReadOutputs::Translations(translations) => {
-                    let translations = translations
-                        .map(|translation| glm::Vec3::from(translation))
-                        .collect::<Vec<_>>();
+                    let translations = translations.map(glm::Vec3::from).collect::<Vec<_>>();
                     transformations = TransformationSet::Translations(translations);
                 }
                 ReadOutputs::Rotations(rotations) => {
                     let rotations = rotations
                         .into_f32()
-                        .map(|rotation| glm::Vec4::from(rotation))
+                        .map(glm::Vec4::from)
                         .collect::<Vec<_>>();
                     transformations = TransformationSet::Rotations(rotations);
                 }
                 ReadOutputs::Scales(scales) => {
-                    let scales = scales
-                        .map(|scale| glm::Vec3::from(scale))
-                        .collect::<Vec<_>>();
+                    let scales = scales.map(glm::Vec3::from).collect::<Vec<_>>();
                     transformations = TransformationSet::Scales(scales);
                 }
                 ReadOutputs::MorphTargetWeights(weights) => {

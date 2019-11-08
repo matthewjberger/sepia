@@ -74,8 +74,10 @@ impl State for MainState {
         );
 
         unsafe {
+            gl::DepthFunc(gl::LEQUAL);
             gl::ClearBufferfv(gl::DEPTH, 0, ONES as *const f32);
             self.skybox.render(&projection, &self.camera.view_matrix());
+            gl::DepthFunc(gl::LESS);
         }
     }
 }

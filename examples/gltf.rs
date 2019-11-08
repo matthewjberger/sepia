@@ -45,7 +45,6 @@ impl State for MainState {
         unsafe {
             gl::Enable(gl::CULL_FACE);
             gl::Enable(gl::DEPTH_TEST);
-            gl::DepthFunc(gl::LEQUAL);
         }
 
         let mut rbo = 0;
@@ -175,9 +174,7 @@ impl State for MainState {
             gl::ClearBufferfv(gl::DEPTH, 0, ONES as *const f32);
         }
 
-        // TODO: render the skybox *last*
         let view = self.camera.view_matrix();
-        self.skybox.render(&projection, &view);
 
         // Render the asset's scene graph
         let asset = self.asset.as_mut().expect("Couldn't get asset!");
@@ -315,6 +312,8 @@ impl State for MainState {
                 }
             }
         }
+
+        self.skybox.render(&projection, &view);
     }
 }
 

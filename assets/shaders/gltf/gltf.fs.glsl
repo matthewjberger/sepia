@@ -8,6 +8,10 @@ uniform vec4 base_color;
 
 void main()
 {
-  color = vec4(texture(texture_diffuse1, texCoords));
+  vec4 texture_color = texture(texture_diffuse1, texCoords);
+  if(texture_color.a < 0.5) {
+    discard;
+  }
+  color = vec4(texture_color);
   // color = base_color;
 }

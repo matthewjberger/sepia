@@ -2,6 +2,7 @@ use gl::types::*;
 use glfw::{Action, Key};
 use sepia::app::*;
 use sepia::buffer::*;
+use sepia::framebuffer::*;
 use sepia::shaderprogram::*;
 use sepia::texture::*;
 use sepia::vao::*;
@@ -40,8 +41,7 @@ struct MainState {
     screen_vbo: Buffer,
     screen_ebo: Buffer,
     screen_program: ShaderProgram,
-    texcolorbuffer: u32,
-    fbo: u32,
+    fbo: Framebuffer,
 }
 
 impl MainState {
@@ -84,60 +84,9 @@ impl State for MainState {
         self.screen_vao.configure_attribute(0, 3, 5, 0);
         self.screen_vao.configure_attribute(1, 2, 5, 3);
 
-        let mut rbo = 0;
-        unsafe {
-            // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
-
-            // Create an fbo
-            gl::GenFramebuffers(1, &mut self.fbo);
-            gl::BindFramebuffer(gl::FRAMEBUFFER, self.fbo);
-
-            // Create a texture to use as the colorbuffer
-            gl::GenTextures(1, &mut self.texcolorbuffer);
-            gl::BindTexture(gl::TEXTURE_2D, self.texcolorbuffer);
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGB as i32,
-                800,
-                600,
-                0,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-                ptr::null(),
-            );
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-            gl::BindTexture(gl::TEXTURE_2D, 0);
-
-            // Attach the colorbuffer to the fbo
-            gl::FramebufferTexture2D(
-                gl::FRAMEBUFFER,
-                gl::COLOR_ATTACHMENT0,
-                gl::TEXTURE_2D,
-                self.texcolorbuffer,
-                0,
-            );
-
-            // Create a renderbuffer
-            gl::GenRenderbuffers(1, &mut rbo);
-            gl::BindRenderbuffer(gl::RENDERBUFFER, rbo);
-            gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH24_STENCIL8, 800, 600);
-            gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
-
-            gl::FramebufferRenderbuffer(
-                gl::FRAMEBUFFER,
-                gl::DEPTH_STENCIL_ATTACHMENT,
-                gl::RENDERBUFFER,
-                rbo,
-            );
-
-            if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
-                panic!("Framebuffer is not complete!")
-            }
-
-            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
-        }
+        self.fbo = Framebuffer::new();
+        self.fbo.create_with_texture(200, 200);
+        self.fbo.add_depth_buffer();
     }
 
     fn handle_events(&mut self, state_data: &mut StateData, event: &glfw::WindowEvent) {
@@ -153,13 +102,15 @@ impl State for MainState {
     }
 
     fn render(&mut self, _: &mut StateData) {
+        // Use the framebuffer
+        self.fbo.bind();
         unsafe {
-            gl::BindFramebuffer(gl::FRAMEBUFFER, self.fbo);
             gl::Enable(gl::DEPTH_TEST);
             gl::ClearColor(0.1, 0.1, 0.1, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
 
+        // Render the scene to the framebuffer
         self.shader_program.activate();
         self.texture.bind(0);
         self.vao.bind();
@@ -167,14 +118,15 @@ impl State for MainState {
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
 
+        // Use the default framebuffer (render to the screen)
+        Framebuffer::bind_default_framebuffer();
+        self.fbo.color_texture().bind(0);
         self.screen_vao.bind();
         self.screen_program.activate();
         unsafe {
-            gl::BindFramebuffer(gl::FRAMEBUFFER, 0); // back to default
             gl::Disable(gl::DEPTH_TEST);
             gl::ClearColor(1.0, 1.0, 1.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl::BindTexture(gl::TEXTURE_2D, self.texcolorbuffer);
             gl::DrawElements(
                 gl::TRIANGLES,
                 INDICES.len() as i32,

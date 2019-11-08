@@ -1,7 +1,10 @@
 use gl::types::GLvoid;
-use image::{DynamicImage, DynamicImage::*, GenericImageView};
+use image::{DynamicImage::*, GenericImageView};
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::{
+    ptr,
+    sync::{Arc, RwLock},
+};
 
 pub type TextureCacheRef = Arc<RwLock<TextureCache>>;
 
@@ -27,37 +30,30 @@ impl TextureCache {
 #[derive(Default)]
 pub struct Texture {
     id: u32,
-    img: Vec<DynamicImage>,
     target: u32,
 }
 
 impl Texture {
+    pub fn new(target: u32) -> Self {
+        let mut id = 0;
+        unsafe {
+            gl::GenTextures(1, &mut id);
+        }
+        Texture { id, target }
+    }
+
     pub fn from_file(path: &str) -> Self {
-        let mut texture = Texture::default();
-        texture.create();
-        texture.target = gl::TEXTURE_2D;
-        texture.bind(0);
+        let mut texture = Texture::new(gl::TEXTURE_2D);
+        texture.load_image(path, texture.target, true);
         texture.set_wrapping_repeat();
-        texture.set_filtering_defaults();
-        texture
-            .img
-            .push(Texture::load_image(path, texture.target, true));
         texture
     }
 
     pub fn cubemap_from_files(paths: &[String; 6]) -> Self {
-        let mut texture = Texture::default();
-        texture.create();
-        texture.target = gl::TEXTURE_CUBE_MAP;
-        texture.bind(0);
-        texture.set_wrapping_clamp();
-        texture.set_filtering_defaults();
+        let mut texture = Texture::new(gl::TEXTURE_CUBE_MAP);
         for (offset, path) in paths.iter().enumerate() {
-            texture.img.push(Texture::load_image(
-                path,
-                gl::TEXTURE_CUBE_MAP_POSITIVE_X + offset as u32,
-                false,
-            ));
+            texture.load_image(path, gl::TEXTURE_CUBE_MAP_POSITIVE_X + offset as u32, false);
+            texture.set_wrapping_clamp();
         }
         texture
     }
@@ -75,10 +71,61 @@ impl Texture {
         }
     }
 
-    fn create(&mut self) {
+    pub fn id(&self) -> u32 {
+        self.id
+    }
+
+    pub fn load_data(
+        &mut self,
+        width: u32,
+        height: u32,
+        pixels: &[u8],
+        pixel_format: u32,
+        target: u32,
+    ) {
+        self.bind(0);
+        let image_data = if pixels.is_empty() {
+            ptr::null()
+        } else {
+            pixels.as_ptr()
+        };
         unsafe {
-            gl::GenTextures(1, &mut self.id);
+            gl::TexImage2D(
+                target,
+                0,
+                pixel_format as i32,
+                width as i32,
+                height as i32,
+                0,
+                pixel_format,
+                gl::UNSIGNED_BYTE,
+                image_data as *const GLvoid,
+            );
+            gl::GenerateMipmap(target);
         }
+        self.set_filtering_linear();
+    }
+
+    fn load_image(&mut self, path: &str, target: u32, flipv: bool) {
+        let mut img = image::open(path).expect("Texture failed to load!");
+        let pixel_format = match img {
+            ImageLuma8(_) => gl::RED,
+            ImageLumaA8(_) => gl::RG,
+            ImageRgb8(_) => gl::RGB,
+            ImageRgba8(_) => gl::RGBA,
+            ImageBgr8(_) => gl::BGR,
+            ImageBgra8(_) => gl::BGRA,
+        };
+        if flipv {
+            img = img.flipv();
+        }
+        self.load_data(
+            img.width(),
+            img.height(),
+            &img.raw_pixels(),
+            pixel_format,
+            target,
+        );
     }
 
     fn set_wrapping_clamp(&mut self) {
@@ -97,41 +144,10 @@ impl Texture {
         }
     }
 
-    fn set_filtering_defaults(&mut self) {
+    fn set_filtering_linear(&mut self) {
         unsafe {
-            // Default filtering options
             gl::TexParameteri(self.target, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TexParameteri(self.target, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
         }
-    }
-
-    fn load_image(path: &str, target: u32, flipv: bool) -> DynamicImage {
-        let mut img = image::open(path).expect("Texture failed to load!");
-        let pixel_format = match img {
-            ImageLuma8(_) => gl::RED,
-            ImageLumaA8(_) => gl::RG,
-            ImageRgb8(_) => gl::RGB,
-            ImageRgba8(_) => gl::RGBA,
-            ImageBgr8(_) => gl::BGR,
-            ImageBgra8(_) => gl::BGRA,
-        };
-        if flipv {
-            img = img.flipv();
-        }
-        unsafe {
-            gl::TexImage2D(
-                target,
-                0,
-                pixel_format as i32,
-                img.width() as i32,
-                img.height() as i32,
-                0,
-                pixel_format,
-                gl::UNSIGNED_BYTE,
-                img.raw_pixels().as_ptr() as *const GLvoid,
-            );
-            gl::GenerateMipmap(target);
-        }
-        img
     }
 }
