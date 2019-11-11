@@ -10,7 +10,7 @@ pub enum CameraDirection {
 pub struct Camera {
     pub position: glm::Vec3,
     right: glm::Vec3,
-    front: glm::Vec3,
+    pub front: glm::Vec3,
     up: glm::Vec3,
     world_up: glm::Vec3,
     speed: f32,

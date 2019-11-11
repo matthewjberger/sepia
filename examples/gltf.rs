@@ -22,7 +22,7 @@ impl State for MainState {
         self.shader_program = ShaderProgram::new();
         self.shader_program
             .vertex_shader_file("assets/shaders/gltf/lit.vs.glsl")
-            .fragment_shader_file("assets/shaders/gltf/lit.fs.glsl")
+            .fragment_shader_file("assets/shaders/gltf/flashlight.fs.glsl")
             .link();
         self.lamp_program = ShaderProgram::new();
         self.lamp_program
@@ -188,17 +188,18 @@ impl State for MainState {
                                 self.shader_program
                                     .set_uniform_float("material.shininess", 20.0);
                             }
-
-                            let lamp_position = glm::vec4(
-                                -25.0 * state_data.current_time.sin() - 50.0,
-                                30.0,
-                                50.0,
-                                1.0,
+                            self.shader_program.set_uniform_vec3(
+                                "light.position",
+                                &self.camera.position.as_slice(),
                             );
-                            // let lamp_direction = glm::vec4(-0.2, -1.0, -0.3, 0.0);
-
                             self.shader_program
-                                .set_uniform_vec4("light.orientation", &lamp_position.as_slice());
+                                .set_uniform_vec3("light.direction", &self.camera.front.as_slice());
+                            self.shader_program
+                                .set_uniform_float("light.cutOff", 12.5_f32.to_radians().cos());
+                            self.shader_program.set_uniform_float(
+                                "light.outerCutOff",
+                                17.5_f32.to_radians().cos(),
+                            );
 
                             // Attenuate the light over a distance of 50 units
                             self.shader_program.set_uniform_float("light.constant", 1.0);
@@ -255,29 +256,6 @@ impl State for MainState {
                                         );
                                     }
                                 }
-                            }
-
-                            // Draw the same model, but as a lamp
-                            let lamp_mvp = projection
-                                * view
-                                * glm::translate(&glm::Mat4::identity(), &lamp_position.xyz())
-                                * glm::scale(&glm::Mat4::identity(), &glm::vec3(7.0, 7.0, 7.0))
-                                * transform;
-                            self.lamp_program.activate();
-                            self.lamp_program.set_uniform_vec3(
-                                "lamp_color",
-                                &glm::vec3(1.0, 1.0, 1.0).as_slice(),
-                            );
-                            self.lamp_program
-                                .set_uniform_matrix4x4("mvp_matrix", lamp_mvp.as_slice());
-                            primitive_info.vao.bind();
-                            unsafe {
-                                gl::DrawElements(
-                                    gl::TRIANGLES,
-                                    primitive_info.num_indices,
-                                    gl::UNSIGNED_INT,
-                                    ptr::null(),
-                                );
                             }
                         }
                     }
