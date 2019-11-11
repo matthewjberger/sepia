@@ -38,7 +38,7 @@ impl State for MainState {
             "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
 
-        self.asset = Some(GltfAsset::from_file("assets/models/nanosuit.glb"));
+        self.asset = Some(GltfAsset::from_file("assets/models/Duck/Duck.gltf"));
 
         unsafe {
             gl::Enable(gl::CULL_FACE);
@@ -189,7 +189,12 @@ impl State for MainState {
                                     .set_uniform_float("material.shininess", 20.0);
                             }
 
-                            let lamp_position = glm::vec4(-50.0, 30.0, 50.0, 1.0);
+                            let lamp_position = glm::vec4(
+                                -25.0 * state_data.current_time.sin() - 50.0,
+                                30.0,
+                                50.0,
+                                1.0,
+                            );
                             // let lamp_direction = glm::vec4(-0.2, -1.0, -0.3, 0.0);
 
                             self.shader_program
@@ -232,6 +237,9 @@ impl State for MainState {
                                                 0.0,
                                                 column as f32 * 10.0,
                                             ),
+                                        ) * glm::scale(
+                                            &glm::Mat4::identity(),
+                                            &glm::vec3(6.0, 6.0, 6.0),
                                         ) * transform)
                                             .as_slice(),
                                     );
@@ -253,6 +261,7 @@ impl State for MainState {
                             let lamp_mvp = projection
                                 * view
                                 * glm::translate(&glm::Mat4::identity(), &lamp_position.xyz())
+                                * glm::scale(&glm::Mat4::identity(), &glm::vec3(7.0, 7.0, 7.0))
                                 * transform;
                             self.lamp_program.activate();
                             self.lamp_program.set_uniform_vec3(
