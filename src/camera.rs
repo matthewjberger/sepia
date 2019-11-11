@@ -33,7 +33,7 @@ impl Camera {
             front: glm::vec3(0.0, 0.0, -1.0),
             up: glm::vec3(0.0, 0.0, 0.0),
             world_up: glm::vec3(0.0, 1.0, 0.0),
-            speed: 5.0,
+            speed: 50.0,
             sensitivity: 0.05,
             yaw_degrees: -90.0,
             pitch_degrees: 0.0,

@@ -189,10 +189,17 @@ impl State for MainState {
                                     .set_uniform_float("material.shininess", 20.0);
                             }
 
-                            self.shader_program.set_uniform_vec4(
-                                "light.orientation",
-                                &glm::vec4(-0.2, -1.0, -0.3, 0.0).as_slice(),
-                            );
+                            let lamp_position = glm::vec4(-50.0, 30.0, 50.0, 1.0);
+                            // let lamp_direction = glm::vec4(-0.2, -1.0, -0.3, 0.0);
+
+                            self.shader_program
+                                .set_uniform_vec4("light.orientation", &lamp_position.as_slice());
+
+                            // Attenuate the light over a distance of 50 units
+                            self.shader_program.set_uniform_float("light.constant", 1.0);
+                            self.shader_program.set_uniform_float("light.linear", 0.007);
+                            self.shader_program
+                                .set_uniform_float("light.quadratic", 0.0002);
 
                             self.shader_program.set_uniform_vec3(
                                 "light.ambient",
@@ -210,13 +217,50 @@ impl State for MainState {
                             self.shader_program
                                 .set_uniform_vec3("view_pos", &self.camera.position.as_slice());
                             self.shader_program
-                                .set_uniform_matrix4x4("model", transform.as_slice());
-                            self.shader_program
                                 .set_uniform_matrix4x4("view", view.as_slice());
                             self.shader_program
                                 .set_uniform_matrix4x4("projection", projection.as_slice());
 
-                            self.shader_program.activate();
+                            for row in 0..10 {
+                                for column in 0..10 {
+                                    self.shader_program.set_uniform_matrix4x4(
+                                        "model",
+                                        (glm::translate(
+                                            &glm::Mat4::identity(),
+                                            &glm::vec3(
+                                                row as f32 * -10.0,
+                                                0.0,
+                                                column as f32 * 10.0,
+                                            ),
+                                        ) * transform)
+                                            .as_slice(),
+                                    );
+
+                                    self.shader_program.activate();
+                                    primitive_info.vao.bind();
+                                    unsafe {
+                                        gl::DrawElements(
+                                            gl::TRIANGLES,
+                                            primitive_info.num_indices,
+                                            gl::UNSIGNED_INT,
+                                            ptr::null(),
+                                        );
+                                    }
+                                }
+                            }
+
+                            // Draw the same model, but as a lamp
+                            let lamp_mvp = projection
+                                * view
+                                * glm::translate(&glm::Mat4::identity(), &lamp_position.xyz())
+                                * transform;
+                            self.lamp_program.activate();
+                            self.lamp_program.set_uniform_vec3(
+                                "lamp_color",
+                                &glm::vec3(1.0, 1.0, 1.0).as_slice(),
+                            );
+                            self.lamp_program
+                                .set_uniform_matrix4x4("mvp_matrix", lamp_mvp.as_slice());
                             primitive_info.vao.bind();
                             unsafe {
                                 gl::DrawElements(

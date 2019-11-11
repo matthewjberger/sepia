@@ -9,9 +9,14 @@ uniform vec3 view_pos;
 
 struct Light {
   vec4 orientation;
+
   vec3 ambient;
   vec3 diffuse;
   vec3 specular;
+
+  float constant;
+  float linear;
+  float quadratic;
 };
 
 struct Material {
@@ -50,6 +55,15 @@ void main()
   vec3 reflect_dir = reflect(-light_dir, norm);
   float spec = pow(max(dot(view_dir, reflect_dir), 0.0), material.shininess);
   vec3 specular = spec * light.specular; // * texture(material.specular_texture, texCoords).rgb;
+
+  if(light.orientation.w == 1.0)
+  {
+    float distance = length(light.orientation.xyz - position);
+    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
+    ambient *= attenuation;
+    diffuse *= attenuation;
+    specular *= attenuation;
+  }
 
   vec3 result = ambient + diffuse + specular;
   color = vec4(result, 1.0);  
