@@ -186,22 +186,42 @@ impl State for MainState {
                                 self.shader_program
                                     .set_uniform_int("material.diffuse_texture", 0);
                                 self.shader_program
-                                    .set_uniform_float("material.shininess", 20.0);
+                                    .set_uniform_float("material.shininess", 32.0);
                             }
 
                             // Flashlight settings
-                            // self.shader_program.set_uniform_vec3(
-                            //     "light.position",
-                            //     &self.camera.position.as_slice(),
-                            // );
-                            // self.shader_program
-                            //     .set_uniform_vec3("light.direction", &self.camera.front.as_slice());
-                            // self.shader_program
-                            //     .set_uniform_float("light.cutOff", 12.5_f32.to_radians().cos());
-                            // self.shader_program.set_uniform_float(
-                            //     "light.outerCutOff",
-                            //     17.5_f32.to_radians().cos(),
-                            // );
+                            self.shader_program.set_uniform_vec3(
+                                "spotlight.position",
+                                &self.camera.position.as_slice(),
+                            );
+                            self.shader_program.set_uniform_vec3(
+                                "spotlight.direction",
+                                &self.camera.front.as_slice(),
+                            );
+                            self.shader_program
+                                .set_uniform_float("spotlight.cutOff", 12.5_f32.to_radians().cos());
+                            self.shader_program.set_uniform_float(
+                                "spotlight.outerCutOff",
+                                17.5_f32.to_radians().cos(),
+                            );
+                            self.shader_program
+                                .set_uniform_float("spotlight.constant", 1.0);
+                            self.shader_program
+                                .set_uniform_float("spotlight.linear", 0.007);
+                            self.shader_program
+                                .set_uniform_float("spotlight.quadratic", 0.0002);
+                            self.shader_program.set_uniform_vec3(
+                                "spotlight.ambient",
+                                &glm::vec3(0.3, 0.24, 0.14).as_slice(),
+                            );
+                            self.shader_program.set_uniform_vec3(
+                                "spotlight.diffuse",
+                                &glm::vec3(0.7, 0.42, 0.26).as_slice(),
+                            );
+                            self.shader_program.set_uniform_vec3(
+                                "spotlight.specular",
+                                &glm::vec3(0.5, 0.5, 0.5).as_slice(),
+                            );
 
                             // Directional Light
                             self.shader_program.set_uniform_vec3(
