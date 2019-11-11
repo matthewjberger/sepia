@@ -22,7 +22,7 @@ impl State for MainState {
         self.shader_program = ShaderProgram::new();
         self.shader_program
             .vertex_shader_file("assets/shaders/gltf/lit.vs.glsl")
-            .fragment_shader_file("assets/shaders/gltf/flashlight.fs.glsl")
+            .fragment_shader_file("assets/shaders/gltf/lit.fs.glsl")
             .link();
         self.lamp_program = ShaderProgram::new();
         self.lamp_program
@@ -188,37 +188,92 @@ impl State for MainState {
                                 self.shader_program
                                     .set_uniform_float("material.shininess", 20.0);
                             }
-                            self.shader_program.set_uniform_vec3(
-                                "light.position",
-                                &self.camera.position.as_slice(),
-                            );
-                            self.shader_program
-                                .set_uniform_vec3("light.direction", &self.camera.front.as_slice());
-                            self.shader_program
-                                .set_uniform_float("light.cutOff", 12.5_f32.to_radians().cos());
-                            self.shader_program.set_uniform_float(
-                                "light.outerCutOff",
-                                17.5_f32.to_radians().cos(),
-                            );
 
-                            // Attenuate the light over a distance of 50 units
-                            self.shader_program.set_uniform_float("light.constant", 1.0);
-                            self.shader_program.set_uniform_float("light.linear", 0.007);
-                            self.shader_program
-                                .set_uniform_float("light.quadratic", 0.0002);
+                            // Flashlight settings
+                            // self.shader_program.set_uniform_vec3(
+                            //     "light.position",
+                            //     &self.camera.position.as_slice(),
+                            // );
+                            // self.shader_program
+                            //     .set_uniform_vec3("light.direction", &self.camera.front.as_slice());
+                            // self.shader_program
+                            //     .set_uniform_float("light.cutOff", 12.5_f32.to_radians().cos());
+                            // self.shader_program.set_uniform_float(
+                            //     "light.outerCutOff",
+                            //     17.5_f32.to_radians().cos(),
+                            // );
 
+                            // Directional Light
                             self.shader_program.set_uniform_vec3(
-                                "light.ambient",
-                                &glm::vec3(0.2, 0.2, 0.2).as_slice(),
+                                "directional_light.direction",
+                                &glm::vec3(-0.2, -1.0, -0.3).as_slice(),
                             );
                             self.shader_program.set_uniform_vec3(
-                                "light.diffuse",
+                                "directional_light.ambient",
+                                &glm::vec3(0.3, 0.24, 0.14).as_slice(),
+                            );
+                            self.shader_program.set_uniform_vec3(
+                                "directional_light.diffuse",
+                                &glm::vec3(0.7, 0.42, 0.26).as_slice(),
+                            );
+                            self.shader_program.set_uniform_vec3(
+                                "directional_light.specular",
                                 &glm::vec3(0.5, 0.5, 0.5).as_slice(),
                             );
+
+                            // Point light 1
+                            let point_light_pos1 = glm::vec3(10.0, 15.0, 45.0);
+                            let point_light_color1 = glm::vec3(0.0, 1.0, 0.5);
+                            let point_light_color1_ambient = point_light_color1 * 0.1;
                             self.shader_program.set_uniform_vec3(
-                                "light.specular",
-                                &glm::vec3(1.0, 1.0, 1.0).as_slice(),
+                                "point_lights[0].position",
+                                &point_light_pos1.as_slice(),
                             );
+                            self.shader_program.set_uniform_vec3(
+                                "point_lights[0].ambient",
+                                &point_light_color1_ambient.as_slice(),
+                            );
+                            self.shader_program.set_uniform_vec3(
+                                "point_lights[0].diffuse",
+                                &point_light_color1.as_slice(),
+                            );
+                            self.shader_program.set_uniform_vec3(
+                                "point_lights[0].specular",
+                                &point_light_color1.as_slice(),
+                            );
+                            self.shader_program
+                                .set_uniform_float("point_lights[0].constant", 1.0);
+                            self.shader_program
+                                .set_uniform_float("point_lights[0].linear", 0.007);
+                            self.shader_program
+                                .set_uniform_float("point_lights[0].quadratic", 0.0002);
+
+                            // Point light 2
+                            let point_light_pos2 = glm::vec3(-10.3, 15.3, -10.0);
+                            let point_light_color2 = glm::vec3(1.0, 0.0, 0.0);
+                            let point_light_color2_ambient = point_light_color2 * 0.1;
+                            self.shader_program.set_uniform_vec3(
+                                "point_lights[1].position",
+                                &point_light_pos2.as_slice(),
+                            );
+                            self.shader_program.set_uniform_vec3(
+                                "point_lights[1].ambient",
+                                &point_light_color2_ambient.as_slice(),
+                            );
+                            self.shader_program.set_uniform_vec3(
+                                "point_lights[1].diffuse",
+                                &point_light_color2.as_slice(),
+                            );
+                            self.shader_program.set_uniform_vec3(
+                                "point_lights[1].specular",
+                                &point_light_color2.as_slice(),
+                            );
+                            self.shader_program
+                                .set_uniform_float("point_lights[1].constant", 1.0);
+                            self.shader_program
+                                .set_uniform_float("point_lights[1].linear", 0.007);
+                            self.shader_program
+                                .set_uniform_float("point_lights[1].quadratic", 0.0002);
 
                             self.shader_program
                                 .set_uniform_vec3("view_pos", &self.camera.position.as_slice());
@@ -256,6 +311,46 @@ impl State for MainState {
                                         );
                                     }
                                 }
+                            }
+
+                            let lamp_mvp = projection
+                                * view
+                                * glm::translate(&glm::Mat4::identity(), &point_light_pos1.xyz())
+                                * glm::scale(&glm::Mat4::identity(), &glm::vec3(2.0, 2.0, 2.0))
+                                * transform;
+                            self.lamp_program.activate();
+                            self.lamp_program
+                                .set_uniform_vec3("lamp_color", &point_light_color1.as_slice());
+                            self.lamp_program
+                                .set_uniform_matrix4x4("mvp_matrix", lamp_mvp.as_slice());
+                            primitive_info.vao.bind();
+                            unsafe {
+                                gl::DrawElements(
+                                    gl::TRIANGLES,
+                                    primitive_info.num_indices,
+                                    gl::UNSIGNED_INT,
+                                    ptr::null(),
+                                );
+                            }
+
+                            let lamp_mvp = projection
+                                * view
+                                * glm::translate(&glm::Mat4::identity(), &point_light_pos2.xyz())
+                                * glm::scale(&glm::Mat4::identity(), &glm::vec3(2.0, 2.0, 2.0))
+                                * transform;
+                            self.lamp_program.activate();
+                            self.lamp_program
+                                .set_uniform_vec3("lamp_color", &point_light_color2.as_slice());
+                            self.lamp_program
+                                .set_uniform_matrix4x4("mvp_matrix", lamp_mvp.as_slice());
+                            primitive_info.vao.bind();
+                            unsafe {
+                                gl::DrawElements(
+                                    gl::TRIANGLES,
+                                    primitive_info.num_indices,
+                                    gl::UNSIGNED_INT,
+                                    ptr::null(),
+                                );
                             }
                         }
                     }

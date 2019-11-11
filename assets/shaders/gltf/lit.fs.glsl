@@ -1,14 +1,20 @@
 #version 330 core
 
-in vec3 position;
-in vec3 normal;
-in vec2 texCoords;
-out vec4 color;
+struct Material {
+  sampler2D diffuse_texture;
+  // sampler2D specular_texture;  
+  float shininess;
+};
 
-uniform vec3 view_pos;
+struct DirectionalLight {
+  vec3 direction;
+  vec3 ambient;
+  vec3 diffuse;
+  vec3 specular;
+};
 
-struct Light {
-  vec4 orientation;
+struct PointLight {
+  vec3 position;
 
   vec3 ambient;
   vec3 diffuse;
@@ -19,52 +25,72 @@ struct Light {
   float quadratic;
 };
 
-struct Material {
-  sampler2D diffuse_texture;
-  // sampler2D specular_texture;  
-  float shininess;
-};
+in vec3 position;
+in vec3 normal;
+in vec2 texCoords;
+out vec4 color;
 
 uniform Material material;
-uniform Light light;
+uniform vec3 view_pos;
+uniform DirectionalLight directional_light;
+#define NUMBER_OF_POINT_LIGHTS 2
+uniform PointLight point_lights[NUMBER_OF_POINT_LIGHTS];
+
+vec3 calculate_directional_light(DirectionalLight light, vec3 normal, vec3 view_direction);
+vec3 calculate_point_light(PointLight light, vec3 normal, vec3 frag_position, vec3 view_dir);
 
 void main()
 {
+  vec3 norm = normalize(normal);
+  vec3 view_dir = normalize(view_pos - position);
 
-  vec3 light_dir = vec3(0.0, 0.0, 0.0);
+  vec3 result = calculate_directional_light(directional_light, norm, view_dir);
+  for (int i = 0; i < NUMBER_OF_POINT_LIGHTS; i++)
+    result += calculate_point_light(point_lights[i], norm, position, view_dir);
 
-  if(light.orientation.w == 0.0)
-  {
-    light_dir = normalize(-light.orientation.xyz);
-  }
-  else if(light.orientation.w == 1.0)
-  {
-    light_dir = normalize(light.orientation.xyz - position);
-  }
-  
-  // ambient
-  vec3 ambient = light.ambient * texture(material.diffuse_texture, texCoords).rgb;
+  color = vec4(result, 1.0);
+}
+
+vec3 calculate_directional_light(DirectionalLight light, vec3 normal, vec3 view_direction)
+{
+  vec3 light_dir = normalize(-light.direction);
 
   // diffuse
-  vec3 norm = normalize(normal);    
-  float diff = max(dot(norm, light_dir), 0.0);
-  vec3 diffuse = light.diffuse * diff * texture(material.diffuse_texture, texCoords).rgb;
+  float diff = max(dot(normal, light_dir), 0.0);
 
   // specular
-  vec3 view_dir = normalize(view_pos - position);
-  vec3 reflect_dir = reflect(-light_dir, norm);
+  vec3 reflect_dir = reflect(-light_dir, normal);
+  float spec = pow(max(dot(view_direction, reflect_dir), 0.0), material.shininess);
+
+  vec3 ambient = light.ambient * vec3(texture(material.diffuse_texture, texCoords));
+  vec3 diffuse = light.diffuse * diff * vec3(texture(material.diffuse_texture, texCoords));
+  vec3 specular = light.specular * spec; // * vec3(texture(material.specular_texture, texCoords));
+
+  return (ambient + diffuse + specular);
+}
+
+
+vec3 calculate_point_light(PointLight light, vec3 normal, vec3 frag_position, vec3 view_dir)
+{
+  vec3 light_dir = normalize(light.position - frag_position);
+
+  // diffuse
+  float diff = max(dot(normal, light_dir), 0.0);
+
+  // specular
+  vec3 reflect_dir = reflect(-light_dir, normal);
   float spec = pow(max(dot(view_dir, reflect_dir), 0.0), material.shininess);
-  vec3 specular = spec * light.specular; // * texture(material.specular_texture, texCoords).rgb;
 
-  if(light.orientation.w == 1.0)
-  {
-    float distance = length(light.orientation.xyz - position);
-    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
-    ambient *= attenuation;
-    diffuse *= attenuation;
-    specular *= attenuation;
-  }
+  // attenuation
+  float distance = length(light.position.xyz - position);
+  float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
 
-  vec3 result = ambient + diffuse + specular;
-  color = vec4(result, 1.0);  
+  vec3 ambient = light.ambient * vec3(texture(material.diffuse_texture, texCoords));
+  vec3 diffuse = light.diffuse * diff * vec3(texture(material.diffuse_texture, texCoords));
+  vec3 specular = light.specular * spec; // * vec3(texture(material.specular_texture, texCoords));
+  ambient *= attenuation;
+  diffuse *= attenuation;
+  specular *= attenuation;
+
+  return (ambient + diffuse + specular);
 }

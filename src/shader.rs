@@ -43,30 +43,32 @@ impl Shader {
         self.check_compilation();
     }
 
+    // TODO: Add something to identify the shader that failed
     fn check_compilation(&self) {
-        // let mut info_log = Vec::with_capacity(1024);
-        // let mut success = gl::FALSE as GLint;
-        // unsafe {
-        //     info_log.set_len(1024 - 1); // subtract 1 to skip the trailing null character
-        //     gl::GetShaderiv(self.id, gl::COMPILE_STATUS, &mut success);
-        // }
-        // if success == gl::TRUE as GLint {
-        //     return;
-        // }
-        // unsafe {
-        //     gl::GetShaderInfoLog(
-        //         self.id,
-        //         1024,
-        //         ptr::null_mut(),
-        //         info_log.as_mut_ptr() as *mut GLchar,
-        //     );
-        // }
-        // println!(
-        //     "ERROR::SHADER_COMPILATION_ERROR of type: {}\n{}\n \
-        //      -- --------------------------------------------------- -- ",
-        //     self.kind(),
-        //     str::from_utf8(&info_log).expect("Couldn't convert to UTF8!")
-        // );
+        let mut success = gl::FALSE as GLint;
+        unsafe {
+            gl::GetShaderiv(self.id, gl::COMPILE_STATUS, &mut success);
+        }
+        if success == gl::TRUE as GLint {
+            return;
+        }
+        let mut info_log_length = 0;
+        unsafe {
+            gl::GetShaderiv(self.id, gl::INFO_LOG_LENGTH, &mut info_log_length);
+        }
+        let mut info_log = vec![0; info_log_length as usize];
+        unsafe {
+            gl::GetShaderInfoLog(
+                self.id,
+                info_log_length,
+                ptr::null_mut(),
+                info_log.as_mut_ptr() as *mut GLchar,
+            );
+        }
+        println!(
+            "ERROR: Shader compilation failed.\n{}\n",
+            str::from_utf8(&info_log).unwrap()
+        );
     }
 
     fn map_type(shader_type: &ShaderKind) -> GLuint {
