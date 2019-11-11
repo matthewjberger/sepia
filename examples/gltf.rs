@@ -7,7 +7,6 @@ use std::ptr;
 const ONES: &[GLfloat; 1] = &[1.0];
 
 // TODO: Eventually remove default derivations where not necessary
-// TODO: Add gl::Delete calls
 #[derive(Default)]
 struct MainState {
     shader_program: ShaderProgram,
@@ -16,7 +15,6 @@ struct MainState {
     skybox: Skybox,
     asset: Option<GltfAsset>,
     animation_time: f32,
-    fbo: u32,
 }
 
 impl State for MainState {
@@ -40,64 +38,12 @@ impl State for MainState {
             "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
 
-        self.asset = Some(GltfAsset::from_file("assets/models/Box.glb"));
+        self.asset = Some(GltfAsset::from_file("assets/models/nanosuit.glb"));
 
         unsafe {
             gl::Enable(gl::CULL_FACE);
             gl::Enable(gl::DEPTH_TEST);
-        }
-
-        let mut rbo = 0;
-        let mut texcolorbuffer = 0;
-        unsafe {
-            // Create an fbo
-            gl::GenFramebuffers(1, &mut self.fbo);
-            gl::BindFramebuffer(gl::FRAMEBUFFER, self.fbo);
-
-            // Create a texture to use as the colorbuffer
-            gl::GenTextures(1, &mut texcolorbuffer);
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGB as i32,
-                800,
-                600,
-                0,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-                ptr::null(),
-            );
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-            gl::BindTexture(gl::TEXTURE_2D, 0);
-
-            // Attach the colorbuffer to the fbo
-            gl::FramebufferTexture2D(
-                gl::FRAMEBUFFER,
-                gl::COLOR_ATTACHMENT0,
-                gl::TEXTURE_2D,
-                texcolorbuffer,
-                0,
-            );
-
-            // Create a renderbuffer
-            gl::GenRenderbuffers(1, &mut rbo);
-            gl::BindRenderbuffer(gl::RENDERBUFFER, rbo);
-            gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH24_STENCIL8, 800, 600);
-            gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
-
-            gl::FramebufferRenderbuffer(
-                gl::FRAMEBUFFER,
-                gl::DEPTH_STENCIL_ATTACHMENT,
-                gl::RENDERBUFFER,
-                rbo,
-            );
-
-            if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
-                panic!("Framebuffer is not complete!")
-            }
-
-            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+            gl::DepthFunc(gl::LEQUAL);
         }
     }
 
@@ -166,7 +112,7 @@ impl State for MainState {
     fn render(&mut self, state_data: &mut StateData) {
         let projection = glm::perspective(
             state_data.aspect_ratio,
-            80_f32.to_radians(),
+            90_f32.to_radians(),
             0.1_f32,
             100000_f32,
         );
@@ -175,6 +121,7 @@ impl State for MainState {
         }
 
         let view = self.camera.view_matrix();
+        self.skybox.render(&projection, &view);
 
         // Render the asset's scene graph
         let asset = self.asset.as_mut().expect("Couldn't get asset!");
@@ -222,98 +169,90 @@ impl State for MainState {
                             if let Some(material_index) = primitive_info.material_index {
                                 let material = asset.lookup_material(material_index);
                                 let pbr = material.pbr_metallic_roughness();
-                                let base_color = pbr.base_color_factor();
+                                //let base_color = glm::Vec4::from(pbr.base_color_factor()).xyz();
                                 if !asset.texture_ids.is_empty() {
-                                    if let Some(base_color_texture_info) = pbr.base_color_texture()
-                                    {
-                                        unsafe {
-                                            gl::BindTexture(
-                                                gl::TEXTURE_2D,
-                                                asset.texture_ids
-                                                    [base_color_texture_info.texture().index()],
-                                            );
-                                        }
+                                    let base_color_index = pbr
+                                        .base_color_texture()
+                                        .expect("Couldn't get base color texture!")
+                                        .texture()
+                                        .index();
+                                    unsafe {
+                                        gl::BindTexture(
+                                            gl::TEXTURE_2D,
+                                            asset.texture_ids[base_color_index],
+                                        );
                                     }
-
-                                    self.shader_program
-                                        .set_uniform_vec4("base_color", &base_color);
-                                }
+                                };
+                                self.shader_program
+                                    .set_uniform_int("material.diffuse_texture", 0);
+                                self.shader_program
+                                    .set_uniform_float("material.shininess", 20.0);
                             }
 
-                            // TODO: Compute normal matrix
+                            let lamp_position = glm::vec3(10.2, 20.0, 10.0);
 
-                            // Light properties
-                            // let lamp_color = glm::vec3(1.0, 0.5, 0.31);
-                            let lamp_color = glm::vec3(
-                                1.0 * state_data.current_time.sin(),
-                                0.75,
-                                1.0 * state_data.current_time.cos(),
+                            self.shader_program
+                                .set_uniform_vec3("light.position", &lamp_position.as_slice());
+                            self.shader_program.set_uniform_vec3(
+                                "light.ambient",
+                                &glm::vec3(0.2, 0.2, 0.2).as_slice(),
                             );
-                            let lamp_position = glm::vec3(
-                                2.0 * state_data.current_time.sin(),
-                                2.0 * state_data.current_time.sin()
-                                    + 2.0 * state_data.current_time.cos(),
-                                2.0 * state_data.current_time.cos(),
+                            self.shader_program.set_uniform_vec3(
+                                "light.diffuse",
+                                &glm::vec3(0.5, 0.5, 0.5).as_slice(),
+                            );
+                            self.shader_program.set_uniform_vec3(
+                                "light.specular",
+                                &glm::vec3(1.0, 1.0, 1.0).as_slice(),
                             );
 
-                            // Draw the model
-                            {
-                                self.shader_program.activate();
-                                self.shader_program
-                                    .set_uniform_vec3("light_pos", lamp_position.as_slice());
-                                self.shader_program
-                                    .set_uniform_vec3("light_color", lamp_color.as_slice());
-                                self.shader_program
-                                    .set_uniform_vec3("view_pos", self.camera.position.as_slice());
-                                self.shader_program
-                                    .set_uniform_matrix4x4("model", transform.as_slice());
-                                self.shader_program
-                                    .set_uniform_matrix4x4("view", view.as_slice());
-                                self.shader_program
-                                    .set_uniform_matrix4x4("projection", projection.as_slice());
-                                primitive_info.vao.bind();
-                                unsafe {
-                                    gl::DrawElements(
-                                        gl::TRIANGLES,
-                                        primitive_info.num_indices,
-                                        gl::UNSIGNED_INT,
-                                        ptr::null(),
-                                    );
-                                }
+                            self.shader_program
+                                .set_uniform_vec3("view_pos", &self.camera.position.as_slice());
+                            self.shader_program
+                                .set_uniform_matrix4x4("model", transform.as_slice());
+                            self.shader_program
+                                .set_uniform_matrix4x4("view", view.as_slice());
+                            self.shader_program
+                                .set_uniform_matrix4x4("projection", projection.as_slice());
+
+                            self.shader_program.activate();
+                            primitive_info.vao.bind();
+                            unsafe {
+                                gl::DrawElements(
+                                    gl::TRIANGLES,
+                                    primitive_info.num_indices,
+                                    gl::UNSIGNED_INT,
+                                    ptr::null(),
+                                );
                             }
 
-                            {
-                                // Draw the same model, but as a lamp
-                                let lamp_mvp = projection
-                                    * view
-                                    * glm::translate(&glm::Mat4::identity(), &lamp_position)
-                                    * glm::scale(
-                                        &glm::Mat4::identity(),
-                                        &glm::vec3(0.25, 0.25, 0.25),
-                                    )
-                                    * transform;
-                                self.lamp_program.activate();
-                                self.lamp_program
-                                    .set_uniform_vec3("lamp_color", lamp_color.as_slice());
-                                self.lamp_program
-                                    .set_uniform_matrix4x4("mvp_matrix", lamp_mvp.as_slice());
-                                primitive_info.vao.bind();
-                                unsafe {
-                                    gl::DrawElements(
-                                        gl::TRIANGLES,
-                                        primitive_info.num_indices,
-                                        gl::UNSIGNED_INT,
-                                        ptr::null(),
-                                    );
-                                }
+                            // Draw the same model, but as a lamp
+                            let lamp_mvp = projection
+                                * view
+                                * glm::translate(&glm::Mat4::identity(), &lamp_position)
+                                * glm::scale(&glm::Mat4::identity(), &glm::vec3(0.25, 0.25, 0.25))
+                                * transform;
+                            self.lamp_program.activate();
+                            self.lamp_program.set_uniform_vec3(
+                                "lamp_color",
+                                &glm::vec3(1.0, 1.0, 1.0).as_slice(),
+                            );
+                            self.lamp_program
+                                .set_uniform_matrix4x4("mvp_matrix", lamp_mvp.as_slice());
+                            primitive_info.vao.bind();
+                            unsafe {
+                                gl::DrawElements(
+                                    gl::TRIANGLES,
+                                    primitive_info.num_indices,
+                                    gl::UNSIGNED_INT,
+                                    ptr::null(),
+                                );
                             }
                         }
                     }
                 }
             }
         }
-
-        self.skybox.render(&projection, &view);
     }
 }
 

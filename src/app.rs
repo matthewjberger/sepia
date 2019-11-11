@@ -39,7 +39,7 @@ impl<'a> App<'a> {
     pub fn new(state_machine: Vec<&'a mut dyn State>) -> Self {
         let context = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
         let (mut window, events) = context
-            .create_window(200, 200, "Sepia", glfw::WindowMode::Windowed)
+            .create_window(800, 600, "Sepia", glfw::WindowMode::Windowed)
             .expect("Failed to create GLFW window.");
 
         window.make_current();

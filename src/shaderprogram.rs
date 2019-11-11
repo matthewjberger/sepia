@@ -100,11 +100,19 @@ impl ShaderProgram {
     // Set integers
     // Get attribute location
 
-    pub fn set_uniform_integer(&self, name: &str, value: i32) {
+    pub fn set_uniform_int(&self, name: &str, value: i32) {
         self.activate();
         let location = self.uniform_location(name);
         unsafe {
             gl::Uniform1i(location, value);
+        }
+    }
+
+    pub fn set_uniform_float(&self, name: &str, value: f32) {
+        self.activate();
+        let location = self.uniform_location(name);
+        unsafe {
+            gl::Uniform1f(location, value);
         }
     }
 

@@ -98,7 +98,7 @@ impl Skybox {
         self.shader_program
             .set_uniform_matrix4x4("view", view_matrix.as_slice());
 
-        self.shader_program.set_uniform_integer("skybox", 0);
+        self.shader_program.set_uniform_int("skybox", 0);
 
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
