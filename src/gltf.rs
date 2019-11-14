@@ -12,7 +12,7 @@ use petgraph::graph::{Graph, NodeIndex};
 
 // TODO: Load bounding volumes using ncollide
 
-pub type NodeGraph = Graph<NodeInfo, ()>;
+pub type NodeGraph = Graph<Node, ()>;
 
 #[derive(Debug)]
 enum TransformationSet {
@@ -63,27 +63,27 @@ impl Transform {
 }
 
 #[derive(Debug)]
-pub struct NodeInfo {
+pub struct Node {
     pub transform: glm::Mat4,
     pub animation_transform: Transform,
-    pub mesh: Option<MeshInfo>,
+    pub mesh: Option<Mesh>,
     index: usize,
 }
 
 #[derive(Debug)]
-pub struct MeshInfo {
-    pub primitives: Vec<PrimitiveInfo>,
+pub struct Mesh {
+    pub primitives: Vec<Primitive>,
 }
 
 #[derive(Debug)]
-pub struct PrimitiveInfo {
+pub struct Primitive {
     pub vao: VertexArrayObject,
     pub num_indices: i32,
     pub material_index: Option<usize>,
 }
 
 #[derive(Debug)]
-pub struct ChannelInfo {
+pub struct Channel {
     node_index: usize,
     inputs: Vec<f32>,
     transformations: TransformationSet,
@@ -93,20 +93,20 @@ pub struct ChannelInfo {
 }
 
 #[derive(Debug)]
-pub struct AnimationInfo {
-    channels: Vec<ChannelInfo>,
+pub struct Animation {
+    channels: Vec<Channel>,
 }
 
 #[derive(Debug)]
-pub struct SceneInfo {
+pub struct Scene {
     pub node_graphs: Vec<NodeGraph>,
 }
 
 pub struct GltfAsset {
     pub texture_ids: Vec<u32>,
     pub gltf: gltf::Document,
-    pub scenes: Vec<SceneInfo>,
-    pub animations: Vec<AnimationInfo>,
+    pub scenes: Vec<Scene>,
+    pub animations: Vec<Animation>,
 }
 
 impl GltfAsset {
@@ -223,7 +223,7 @@ impl GltfAsset {
 //     }
 // }
 
-fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<AnimationInfo> {
+fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<Animation> {
     // TODO: load names if present as well
     let mut animations = Vec::new();
     for animation in gltf.animations() {
@@ -257,7 +257,7 @@ fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
                     transformations = TransformationSet::MorphTargetWeights(morph_target_weights);
                 }
             }
-            channels.push(ChannelInfo {
+            channels.push(Channel {
                 node_index,
                 inputs,
                 transformations,
@@ -266,15 +266,15 @@ fn prepare_animations(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> 
                 previous_time: 0.0,
             });
         }
-        animations.push(AnimationInfo { channels });
+        animations.push(Animation { channels });
     }
     animations
 }
 
 // TODO: Make graph a collection of collections of graphs belonging to the scene (Vec<Vec<NodeGraph>>)
 // TODO: Load names for scenes and nodes
-fn prepare_scenes(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<SceneInfo> {
-    let mut scenes: Vec<SceneInfo> = Vec::new();
+fn prepare_scenes(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<Scene> {
+    let mut scenes: Vec<Scene> = Vec::new();
     for scene in gltf.scenes() {
         let mut node_graphs: Vec<NodeGraph> = Vec::new();
         for node in scene.nodes() {
@@ -282,7 +282,7 @@ fn prepare_scenes(gltf: &gltf::Document, buffers: &[gltf::buffer::Data]) -> Vec<
             visit_children(&node, &buffers, &mut node_graph, NodeIndex::new(0_usize));
             node_graphs.push(node_graph);
         }
-        scenes.push(SceneInfo { node_graphs });
+        scenes.push(Scene { node_graphs });
     }
     scenes
 }
@@ -331,7 +331,7 @@ fn visit_children(
     node_graph: &mut NodeGraph,
     parent_index: NodeIndex,
 ) {
-    let node_info = NodeInfo {
+    let node_info = Node {
         transform: determine_transform(node),
         animation_transform: Transform::default(),
         mesh: load_mesh(node, buffers),
@@ -348,7 +348,7 @@ fn visit_children(
     }
 }
 
-fn load_mesh(node: &gltf::Node, buffers: &[gltf::buffer::Data]) -> Option<MeshInfo> {
+fn load_mesh(node: &gltf::Node, buffers: &[gltf::buffer::Data]) -> Option<Mesh> {
     if let Some(mesh) = node.mesh() {
         let mut all_primitive_info = Vec::new();
         for primitive in mesh.primitives() {
@@ -358,7 +358,7 @@ fn load_mesh(node: &gltf::Node, buffers: &[gltf::buffer::Data]) -> Option<MeshIn
             primitive_info.material_index = material_index;
             all_primitive_info.push(primitive_info);
         }
-        Some(MeshInfo {
+        Some(Mesh {
             primitives: all_primitive_info,
         })
     } else {
@@ -416,7 +416,7 @@ fn read_buffer_data(
     (vertices, indices)
 }
 
-fn prepare_primitive_gl(vertices: &[Vertex], indices: &[u32]) -> PrimitiveInfo {
+fn prepare_primitive_gl(vertices: &[Vertex], indices: &[u32]) -> Primitive {
     let vao = VertexArrayObject::new();
     let mut vbo = Buffer::new(BufferKind::Array);
     let mut ibo = Buffer::new(BufferKind::Element);
@@ -431,7 +431,7 @@ fn prepare_primitive_gl(vertices: &[Vertex], indices: &[u32]) -> PrimitiveInfo {
     vao.configure_attribute(1, 3, 8, 3); // Normal
     vao.configure_attribute(2, 2, 8, 6); // Texture Coordinate
 
-    PrimitiveInfo {
+    Primitive {
         vao,
         num_indices: indices.len() as i32,
         material_index: None,
