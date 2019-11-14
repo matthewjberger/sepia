@@ -24,19 +24,56 @@ enum TransformationSet {
 
 #[repr(C)]
 pub struct Vertex {
-    position: glm::Vec3,
-    normal: glm::Vec3,
-    tex_coords: glm::Vec2,
+    position: Option<glm::Vec3>,
+    normal: Option<glm::Vec3>,
+    tex_coords: Option<glm::Vec2>,
 }
 
 impl Vertex {
     pub fn new(position: glm::Vec3, normal: glm::Vec3, tex_coords: glm::Vec2) -> Self {
         Vertex {
-            position,
-            normal,
-            tex_coords,
+            position: Some(position),
+            normal: Some(normal),
+            tex_coords: Some(tex_coords),
         }
     }
+
+    pub fn packed(&self) -> Vec<f32> {
+        let mut data: Vec<f32> = Vec::new();
+        if let Some(position) = self.position {
+            data.extend(&position.as_slice().to_vec());
+        }
+        if let Some(normal) = self.normal {
+            data.extend(&normal.as_slice().to_vec());
+        }
+        if let Some(tex_coords) = self.tex_coords {
+            data.extend(&tex_coords.as_slice().to_vec());
+        }
+        data
+    }
+}
+
+pub struct VertexSet {
+    vertices: Vec<Vertex>,
+}
+
+impl VertexSet {
+    fn packed(&self) -> Vec<f32> {
+        self.vertices
+            .iter()
+            .map(|vertex| vertex.packed())
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+    }
+
+    // TODO: Add enabled attributes, etc
+}
+
+#[derive(Debug)]
+pub struct Skin {
+    pub inverse_bind_matrices: Vec<glm::Mat4>,
+    pub joint_indices: Vec<usize>,
 }
 
 #[derive(Debug, Default)]
@@ -352,8 +389,8 @@ fn load_mesh(node: &gltf::Node, buffers: &[gltf::buffer::Data]) -> Option<Mesh> 
     if let Some(mesh) = node.mesh() {
         let mut all_primitive_info = Vec::new();
         for primitive in mesh.primitives() {
-            let (vertices, indices) = read_buffer_data(&primitive, &buffers);
-            let mut primitive_info = prepare_primitive_gl(&vertices, &indices);
+            let (vertex_set, indices) = read_buffer_data(&primitive, &buffers);
+            let mut primitive_info = prepare_primitive_gl(&vertex_set, &indices);
             let material_index = primitive.material().index();
             primitive_info.material_index = material_index;
             all_primitive_info.push(primitive_info);
@@ -380,31 +417,65 @@ fn determine_transform(node: &gltf::Node) -> glm::Mat4 {
 fn read_buffer_data(
     primitive: &gltf::Primitive,
     buffers: &[gltf::buffer::Data],
-) -> (Vec<Vertex>, Vec<u32>) {
+) -> (VertexSet, Vec<u32>) {
     let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+
     let positions = reader
         .read_positions()
         .expect("Couldn't read positions!")
+        .map(glm::Vec3::from)
         .collect::<Vec<_>>();
+
     let normals = reader
         .read_normals()
-        .expect("Couldn't read normals")
+        .expect("Couldn't read normals!")
+        .map(glm::Vec3::from)
         .collect::<Vec<_>>();
+
     let tex_coords = reader
         .read_tex_coords(0)
         .map(|read_tex_coords| read_tex_coords.into_f32().collect::<Vec<_>>())
         .unwrap_or_else(|| vec![[0.0; 2]; positions.len()]);
+    // .map(glm::Vec2::from)
+    // .collect::<Vec<_>>();
 
     // TODO: Load and configure second set of tex_coords 'read_tex_coords(1)'
 
+    // let joints_0 = reader
+    //     .read_joints(0)
+    //     .map(|read_joints| read_joints.into_u16())
+    //     .expect("Couldn't read joints")
+    //     .map(|joint_set| {
+    //         glm::vec4(
+    //             joint_set[0] as f32,
+    //             joint_set[1] as f32,
+    //             joint_set[2] as f32,
+    //             joint_set[3] as f32,
+    //         )
+    //     })
+    //     .collect::<Vec<_>>();
+
+    // let weights_0 = reader
+    //     .read_weights(0)
+    //     .map(|read_weights| read_weights.into_u16())
+    //     .expect("Couldn't read weights")
+    //     .map(|weight_set| {
+    //         glm::vec4(
+    //             weight_set[0] as f32,
+    //             weight_set[1] as f32,
+    //             weight_set[2] as f32,
+    //             weight_set[3] as f32,
+    //         )
+    //     })
+    //     .collect::<Vec<_>>();
+
     let mut vertices = Vec::new();
-    for (index, position) in positions.iter().enumerate() {
-        let normal = normals[index];
-        let tex_coord = tex_coords[index];
+    let length = positions.len();
+    for index in 0..length {
         vertices.push(Vertex::new(
-            glm::vec3(position[0], position[1], position[2]),
-            glm::vec3(normal[0], normal[1], normal[2]),
-            glm::vec2(tex_coord[0], tex_coord[1]),
+            positions[index],
+            normals[index],
+            glm::Vec2::from(tex_coords[index]),
         ));
     }
 
@@ -413,15 +484,15 @@ fn read_buffer_data(
         .map(|read_indices| read_indices.into_u32().collect::<Vec<_>>())
         .unwrap();
 
-    (vertices, indices)
+    (VertexSet { vertices }, indices)
 }
 
-fn prepare_primitive_gl(vertices: &[Vertex], indices: &[u32]) -> Primitive {
+fn prepare_primitive_gl(vertices: &VertexSet, indices: &[u32]) -> Primitive {
     let vao = VertexArrayObject::new();
     let mut vbo = Buffer::new(BufferKind::Array);
     let mut ibo = Buffer::new(BufferKind::Element);
 
-    vbo.add_data(vertices);
+    vbo.add_data(&vertices.packed());
     vbo.upload(&vao, DrawingHint::StaticDraw);
 
     ibo.add_data(indices);
