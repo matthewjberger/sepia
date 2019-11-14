@@ -477,7 +477,7 @@ fn load_skin(node: &gltf::Node, buffers: &[gltf::buffer::Data]) -> Option<Skin> 
             });
         }
 
-        Some(Skin { joints: Vec::new() })
+        Some(Skin { joints })
     } else {
         None
     }

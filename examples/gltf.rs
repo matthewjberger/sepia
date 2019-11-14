@@ -164,19 +164,21 @@ impl State for MainState {
                     }
 
                     // Skinning
-                    // TODO: This may have to be moved outside the scene graph traversal
-                    // to have a separate traversal of the skeleton
                     if let Some(skin) = graph[node_index].skin.as_ref() {
-                        let mut joint_matrices = Vec::new();
-                        for joint in skin.joints.iter() {
+                        for (index, joint) in skin.joints.iter().enumerate() {
+                            // TODO: This must not be correct, fix it
                             let joint_matrix =
                             // Inverse transform of the node the mesh is attached to
                                 glm::inverse(&graph[node_index].transform) *
-                            // Transform of the joint node
+                            // Current global transform of the joint node
                                 graph[NodeIndex::new(joint.index)].transform *
                             // Transform of the joint's inverse bind matrix
                                 joint.inverse_bind_matrix;
-                            joint_matrices.push(joint_matrix);
+
+                            self.shader_program.set_uniform_matrix4x4(
+                                &format!("u_jointMatrix[{}]", index),
+                                joint_matrix.as_slice(),
+                            );
                         }
                     }
 
