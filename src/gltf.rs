@@ -117,10 +117,13 @@ impl VertexSet {
 
 #[derive(Debug)]
 pub struct Skin {
-    // When this is none,each matrix should be assumed to be the
-    // 4x4 identity matrix, which implies that the inverse-bind matrices were pre-applied
-    pub inverse_bind_matrices: Option<Vec<glm::Mat4>>,
-    pub joint_indices: Vec<usize>,
+    pub joints: Vec<Joint>,
+}
+
+#[derive(Debug)]
+pub struct Joint {
+    pub index: usize,
+    pub inverse_bind_matrix: glm::Mat4,
 }
 
 #[derive(Debug, Default)]
@@ -455,22 +458,26 @@ fn load_mesh(node: &gltf::Node, buffers: &[gltf::buffer::Data]) -> Option<Mesh> 
 fn load_skin(node: &gltf::Node, buffers: &[gltf::buffer::Data]) -> Option<Skin> {
     if let Some(skin) = node.skin() {
         let reader = skin.reader(|buffer| Some(&buffers[buffer.index()]));
-        let inverse_bind_matrices = reader.read_inverse_bind_matrices().and_then(|matrices| {
-            matrices
-                .map(|matrix| Some(glm::Mat4::from(matrix)))
-                .collect::<Option<Vec<_>>>()
-        });
+        let inverse_bind_matrices = reader
+            .read_inverse_bind_matrices()
+            .map_or(Vec::new(), |matrices| {
+                matrices.map(glm::Mat4::from).collect::<Vec<_>>()
+            });
 
-        // TODO: May not need these
-        let mut joint_indices: Vec<usize> = Vec::new();
-        for joint_node in skin.joints() {
-            joint_indices.push(joint_node.index());
+        let mut joints = Vec::new();
+        for (index, joint_node) in skin.joints().enumerate() {
+            let inverse_bind_matrix = if inverse_bind_matrices.is_empty() {
+                glm::Mat4::identity()
+            } else {
+                inverse_bind_matrices[index]
+            };
+            joints.push(Joint {
+                inverse_bind_matrix,
+                index: joint_node.index(),
+            });
         }
 
-        Some(Skin {
-            inverse_bind_matrices,
-            joint_indices,
-        })
+        Some(Skin { joints: Vec::new() })
     } else {
         None
     }
