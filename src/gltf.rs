@@ -23,21 +23,16 @@ enum TransformationSet {
 }
 
 #[repr(C)]
+#[derive(Default)]
 pub struct Vertex {
     position: Option<glm::Vec3>,
     normal: Option<glm::Vec3>,
-    tex_coords: Option<glm::Vec2>,
+    tex_coords_0: Option<glm::Vec2>,
+    joints_0: Option<glm::Vec4>,
+    weights_0: Option<glm::Vec4>,
 }
 
 impl Vertex {
-    pub fn new(position: glm::Vec3, normal: glm::Vec3, tex_coords: glm::Vec2) -> Self {
-        Vertex {
-            position: Some(position),
-            normal: Some(normal),
-            tex_coords: Some(tex_coords),
-        }
-    }
-
     pub fn packed(&self) -> Vec<f32> {
         let mut data: Vec<f32> = Vec::new();
         if let Some(position) = self.position {
@@ -46,8 +41,8 @@ impl Vertex {
         if let Some(normal) = self.normal {
             data.extend(&normal.as_slice().to_vec());
         }
-        if let Some(tex_coords) = self.tex_coords {
-            data.extend(&tex_coords.as_slice().to_vec());
+        if let Some(tex_coords_0) = self.tex_coords_0 {
+            data.extend(&tex_coords_0.as_slice().to_vec());
         }
         data
     }
@@ -62,7 +57,6 @@ impl VertexSet {
         self.vertices
             .iter()
             .map(|vertex| vertex.packed())
-            .into_iter()
             .flatten()
             .collect::<Vec<_>>()
     }
@@ -420,63 +414,47 @@ fn read_buffer_data(
 ) -> (VertexSet, Vec<u32>) {
     let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
 
-    let positions = reader
-        .read_positions()
-        .expect("Couldn't read positions!")
-        .map(glm::Vec3::from)
-        .collect::<Vec<_>>();
+    let positions = reader.read_positions().map_or(Vec::new(), |positions| {
+        positions.map(glm::Vec3::from).collect::<Vec<_>>()
+    });
 
-    let normals = reader
-        .read_normals()
-        .expect("Couldn't read normals!")
-        .map(glm::Vec3::from)
-        .collect::<Vec<_>>();
+    let normals = reader.read_normals().map_or(Vec::new(), |normals| {
+        normals.map(glm::Vec3::from).collect::<Vec<_>>()
+    });
 
-    let tex_coords = reader
-        .read_tex_coords(0)
-        .map(|read_tex_coords| read_tex_coords.into_f32().collect::<Vec<_>>())
-        .unwrap_or_else(|| vec![[0.0; 2]; positions.len()]);
-    // .map(glm::Vec2::from)
-    // .collect::<Vec<_>>();
+    let tex_coords_0 = reader.read_tex_coords(0).map_or(Vec::new(), |coords| {
+        coords.into_f32().map(glm::Vec2::from).collect::<Vec<_>>()
+    });
+
+    let joints_0 = reader.read_joints(0).map_or(Vec::new(), |joints| {
+        joints
+            .into_u16()
+            .map(|joint| {
+                glm::vec4(
+                    joint[0] as f32,
+                    joint[1] as f32,
+                    joint[2] as f32,
+                    joint[3] as f32,
+                )
+            })
+            .collect::<Vec<_>>()
+    });
+
+    let weights_0 = reader.read_weights(0).map_or(Vec::new(), |weights| {
+        weights.into_f32().map(glm::Vec4::from).collect::<Vec<_>>()
+    });
 
     // TODO: Load and configure second set of tex_coords 'read_tex_coords(1)'
 
-    // let joints_0 = reader
-    //     .read_joints(0)
-    //     .map(|read_joints| read_joints.into_u16())
-    //     .expect("Couldn't read joints")
-    //     .map(|joint_set| {
-    //         glm::vec4(
-    //             joint_set[0] as f32,
-    //             joint_set[1] as f32,
-    //             joint_set[2] as f32,
-    //             joint_set[3] as f32,
-    //         )
-    //     })
-    //     .collect::<Vec<_>>();
-
-    // let weights_0 = reader
-    //     .read_weights(0)
-    //     .map(|read_weights| read_weights.into_u16())
-    //     .expect("Couldn't read weights")
-    //     .map(|weight_set| {
-    //         glm::vec4(
-    //             weight_set[0] as f32,
-    //             weight_set[1] as f32,
-    //             weight_set[2] as f32,
-    //             weight_set[3] as f32,
-    //         )
-    //     })
-    //     .collect::<Vec<_>>();
-
     let mut vertices = Vec::new();
-    let length = positions.len();
-    for index in 0..length {
-        vertices.push(Vertex::new(
-            positions[index],
-            normals[index],
-            glm::Vec2::from(tex_coords[index]),
-        ));
+    for (index, position) in positions.iter().enumerate() {
+        vertices.push(Vertex {
+            position: Some(*position),
+            normal: normals.get(index).copied(),
+            tex_coords_0: tex_coords_0.get(index).copied(),
+            joints_0: joints_0.get(index).copied(),
+            weights_0: weights_0.get(index).copied(),
+        });
     }
 
     let indices = reader
