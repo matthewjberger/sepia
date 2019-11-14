@@ -28,40 +28,74 @@ pub struct Vertex {
     position: Option<glm::Vec3>,
     normal: Option<glm::Vec3>,
     tex_coords_0: Option<glm::Vec2>,
+    tex_coords_1: Option<glm::Vec2>,
     joints_0: Option<glm::Vec4>,
     weights_0: Option<glm::Vec4>,
 }
 
 impl Vertex {
-    pub fn packed(&self) -> Vec<f32> {
+    // Packs the vertex data in a specific order
+    pub fn pack_data(&self) -> Vec<f32> {
         let mut data: Vec<f32> = Vec::new();
+
         if let Some(position) = self.position {
             data.extend(&position.as_slice().to_vec());
         }
+
         if let Some(normal) = self.normal {
             data.extend(&normal.as_slice().to_vec());
         }
+
         if let Some(tex_coords_0) = self.tex_coords_0 {
             data.extend(&tex_coords_0.as_slice().to_vec());
         }
+
         data
     }
 }
 
 pub struct VertexSet {
-    vertices: Vec<Vertex>,
+    pub vertices: Vec<Vertex>,
 }
 
 impl VertexSet {
-    fn packed(&self) -> Vec<f32> {
+    fn pack_vertices(&self) -> Vec<f32> {
         self.vertices
             .iter()
-            .map(|vertex| vertex.packed())
+            .map(|vertex| vertex.pack_data())
             .flatten()
             .collect::<Vec<_>>()
     }
 
-    // TODO: Add enabled attributes, etc
+    // This determines the order that attributes are configured in
+    // This must patch the packing order for vertices
+    fn data_lengths(&self) -> Vec<u32> {
+        let vec2_length = 2;
+        let vec3_length = 3;
+
+        let mut data_lengths: Vec<u32> = Vec::new();
+
+        if self.vertices.is_empty() {
+            return data_lengths;
+        }
+
+        // first vertex is representative of all other vertices
+        let first_vertex = &self.vertices[0];
+
+        if first_vertex.position.is_some() {
+            data_lengths.push(vec3_length);
+        }
+
+        if first_vertex.normal.is_some() {
+            data_lengths.push(vec3_length);
+        }
+
+        if first_vertex.tex_coords_0.is_some() {
+            data_lengths.push(vec2_length);
+        }
+
+        data_lengths
+    }
 }
 
 #[derive(Debug)]
@@ -422,9 +456,11 @@ fn read_buffer_data(
         normals.map(glm::Vec3::from).collect::<Vec<_>>()
     });
 
-    let tex_coords_0 = reader.read_tex_coords(0).map_or(Vec::new(), |coords| {
+    let convert_coords = |coords: gltf::mesh::util::ReadTexCoords<'_>| -> Vec<glm::Vec2> {
         coords.into_f32().map(glm::Vec2::from).collect::<Vec<_>>()
-    });
+    };
+    let tex_coords_0 = reader.read_tex_coords(0).map_or(Vec::new(), convert_coords);
+    let tex_coords_1 = reader.read_tex_coords(1).map_or(Vec::new(), convert_coords);
 
     let joints_0 = reader.read_joints(0).map_or(Vec::new(), |joints| {
         joints
@@ -452,6 +488,7 @@ fn read_buffer_data(
             position: Some(*position),
             normal: normals.get(index).copied(),
             tex_coords_0: tex_coords_0.get(index).copied(),
+            tex_coords_1: tex_coords_1.get(index).copied(),
             joints_0: joints_0.get(index).copied(),
             weights_0: weights_0.get(index).copied(),
         });
@@ -465,20 +502,24 @@ fn read_buffer_data(
     (VertexSet { vertices }, indices)
 }
 
-fn prepare_primitive_gl(vertices: &VertexSet, indices: &[u32]) -> Primitive {
+fn prepare_primitive_gl(vertex_set: &VertexSet, indices: &[u32]) -> Primitive {
     let vao = VertexArrayObject::new();
     let mut vbo = Buffer::new(BufferKind::Array);
     let mut ibo = Buffer::new(BufferKind::Element);
 
-    vbo.add_data(&vertices.packed());
+    vbo.add_data(&vertex_set.pack_vertices());
     vbo.upload(&vao, DrawingHint::StaticDraw);
 
     ibo.add_data(indices);
     ibo.upload(&vao, DrawingHint::StaticDraw);
 
-    vao.configure_attribute(0, 3, 8, 0); // Position
-    vao.configure_attribute(1, 3, 8, 3); // Normal
-    vao.configure_attribute(2, 2, 8, 6); // Texture Coordinate
+    let data_lengths = vertex_set.data_lengths();
+    let total_length = data_lengths.iter().sum();
+    let mut offset = 0;
+    for (current_attribute, length) in data_lengths.iter().enumerate() {
+        vao.configure_attribute(current_attribute as u32, *length, total_length, offset);
+        offset += length;
+    }
 
     Primitive {
         vao,
