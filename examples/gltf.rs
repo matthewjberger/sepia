@@ -38,7 +38,7 @@ impl State for MainState {
             "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
 
-        self.asset = Some(GltfAsset::from_file("assets/models/Duck/Duck.gltf"));
+        self.asset = Some(GltfAsset::from_file("assets/models/RiggedSimple.glb"));
 
         unsafe {
             gl::Enable(gl::CULL_FACE);
@@ -161,6 +161,16 @@ impl State for MainState {
                     // If the node has children, store the index for children to use
                     if outgoing_walker.next(&graph).is_some() {
                         transform_indices.push(node_index);
+                    }
+
+                    // Skinning
+                    // TODO: This may have to be moved outside the scene graph traversal
+                    // to have a separate traversal of the skeleton
+                    if let Some(skin) = graph[node_index].skin.as_ref() {
+                        for joint_index in skin.joint_indices.iter() {
+                            let _node = &graph[NodeIndex::new(*joint_index)];
+                            // let joint_matrix = glm::inverse(&transform) *
+                        }
                     }
 
                     // Render with the given transform

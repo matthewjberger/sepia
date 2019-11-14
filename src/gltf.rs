@@ -152,7 +152,7 @@ pub struct Node {
     pub animation_transform: Transform,
     pub mesh: Option<Mesh>,
     pub skin: Option<Skin>,
-    index: usize,
+    pub index: usize,
 }
 
 #[derive(Debug)]
