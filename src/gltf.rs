@@ -50,6 +50,14 @@ impl Vertex {
             data.extend(&tex_coords_0.as_slice().to_vec());
         }
 
+        if let Some(joints_0) = self.joints_0 {
+            data.extend(&joints_0.as_slice().to_vec());
+        }
+
+        if let Some(weights_0) = self.weights_0 {
+            data.extend(&weights_0.as_slice().to_vec());
+        }
+
         data
     }
 }
@@ -72,6 +80,7 @@ impl VertexSet {
     fn data_lengths(&self) -> Vec<u32> {
         let vec2_length = 2;
         let vec3_length = 3;
+        let vec4_length = 4;
 
         let mut data_lengths: Vec<u32> = Vec::new();
 
@@ -94,13 +103,23 @@ impl VertexSet {
             data_lengths.push(vec2_length);
         }
 
+        if first_vertex.joints_0.is_some() {
+            data_lengths.push(vec4_length);
+        }
+
+        if first_vertex.weights_0.is_some() {
+            data_lengths.push(vec4_length);
+        }
+
         data_lengths
     }
 }
 
 #[derive(Debug)]
 pub struct Skin {
-    pub inverse_bind_matrices: Vec<glm::Mat4>,
+    // When this is none,each matrix should be assumed to be the
+    // 4x4 identity matrix, which implies that the inverse-bind matrices were pre-applied
+    pub inverse_bind_matrices: Option<Vec<glm::Mat4>>,
     pub joint_indices: Vec<usize>,
 }
 
@@ -132,6 +151,7 @@ pub struct Node {
     pub transform: glm::Mat4,
     pub animation_transform: Transform,
     pub mesh: Option<Mesh>,
+    pub skin: Option<Skin>,
     index: usize,
 }
 
@@ -400,6 +420,7 @@ fn visit_children(
         transform: determine_transform(node),
         animation_transform: Transform::default(),
         mesh: load_mesh(node, buffers),
+        skin: load_skin(node, buffers),
         index: node.index(),
     };
 
@@ -425,6 +446,30 @@ fn load_mesh(node: &gltf::Node, buffers: &[gltf::buffer::Data]) -> Option<Mesh> 
         }
         Some(Mesh {
             primitives: all_primitive_info,
+        })
+    } else {
+        None
+    }
+}
+
+fn load_skin(node: &gltf::Node, buffers: &[gltf::buffer::Data]) -> Option<Skin> {
+    if let Some(skin) = node.skin() {
+        let reader = skin.reader(|buffer| Some(&buffers[buffer.index()]));
+        let inverse_bind_matrices = reader.read_inverse_bind_matrices().and_then(|matrices| {
+            matrices
+                .map(|matrix| Some(glm::Mat4::from(matrix)))
+                .collect::<Option<Vec<_>>>()
+        });
+
+        // TODO: May not need these
+        let mut joint_indices: Vec<usize> = Vec::new();
+        for joint_node in skin.joints() {
+            joint_indices.push(joint_node.index());
+        }
+
+        Some(Skin {
+            inverse_bind_matrices,
+            joint_indices,
         })
     } else {
         None
@@ -479,8 +524,6 @@ fn read_buffer_data(
     let weights_0 = reader.read_weights(0).map_or(Vec::new(), |weights| {
         weights.into_f32().map(glm::Vec4::from).collect::<Vec<_>>()
     });
-
-    // TODO: Load and configure second set of tex_coords 'read_tex_coords(1)'
 
     let mut vertices = Vec::new();
     for (index, position) in positions.iter().enumerate() {
