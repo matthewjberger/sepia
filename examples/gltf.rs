@@ -150,12 +150,12 @@ impl State for MainState {
                             .iter()
                             .fold(glm::Mat4::identity(), |transform, index| {
                                 transform
-                                    * graph[*index].transform
+                                    * graph[*index].local_transform
                                     * graph[*index].animation_transform.matrix()
                             });
 
                     let transform = current_transform
-                        * graph[node_index].transform
+                        * graph[node_index].local_transform
                         * graph[node_index].animation_transform.matrix();
 
                     // If the node has children, store the index for children to use
@@ -169,9 +169,9 @@ impl State for MainState {
                             // TODO: This must not be correct, fix it
                             let joint_matrix =
                             // Inverse transform of the node the mesh is attached to
-                                glm::inverse(&graph[node_index].transform) *
+                                glm::inverse(&graph[node_index].local_transform) *
                             // Current global transform of the joint node
-                                graph[NodeIndex::new(joint.index)].transform *
+                                graph[NodeIndex::new(joint.index)].local_transform *
                             // Transform of the joint's inverse bind matrix
                                 joint.inverse_bind_matrix;
 

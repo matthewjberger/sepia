@@ -151,7 +151,7 @@ impl Transform {
 
 #[derive(Debug)]
 pub struct Node {
-    pub transform: glm::Mat4,
+    pub local_transform: glm::Mat4,
     pub animation_transform: Transform,
     pub mesh: Option<Mesh>,
     pub skin: Option<Skin>,
@@ -420,7 +420,7 @@ fn visit_children(
     parent_index: NodeIndex,
 ) {
     let node_info = Node {
-        transform: determine_transform(node),
+        local_transform: determine_transform(node),
         animation_transform: Transform::default(),
         mesh: load_mesh(node, buffers),
         skin: load_skin(node, buffers),
