@@ -123,52 +123,29 @@ impl State for MainState {
         let view = self.camera.view_matrix();
         self.skybox.render(&projection, &view);
 
-        // Render the asset's scene graph
+        // Render the asset's scene graphs
         let asset = self.asset.as_mut().expect("Couldn't get asset!");
         for scene in asset.scenes.iter() {
             for graph in scene.node_graphs.iter() {
-                let mut transform_indices: Vec<NodeIndex> = Vec::new();
                 let mut dfs = Dfs::new(&graph, NodeIndex::new(0));
                 while let Some(node_index) = dfs.next(&graph) {
-                    let mut incoming_walker =
-                        graph.neighbors_directed(node_index, Incoming).detach();
-                    let mut outgoing_walker =
-                        graph.neighbors_directed(node_index, Outgoing).detach();
-
-                    if let Some(parent) = incoming_walker.next_node(&graph) {
-                        while let Some(last_index) = transform_indices.last() {
-                            if *last_index == parent {
-                                break;
-                            }
-                            // Discard indices for transforms that are no longer needed
-                            transform_indices.pop();
-                        }
-                    }
-
-                    transform_indices.push(node_index);
-                    let global_transform =
-                        transform_indices
-                            .iter()
-                            .fold(glm::Mat4::identity(), |transform, index| {
-                                transform
-                                    * graph[*index].local_transform
-                                    * graph[*index].animation_transform.matrix()
-                            });
-
-                    // If the node has no children, don't store the index
-                    if !outgoing_walker.next(&graph).is_some() {
-                        transform_indices.pop();
-                    }
+                    let global_transform = calculate_global_transform(node_index, graph);
 
                     // Skinning
                     if let Some(skin) = graph[node_index].skin.as_ref() {
                         for (index, joint) in skin.joints.iter().enumerate() {
+                            let joint_global_transform =
+                                calculate_global_transform(NodeIndex::new(joint.index), &graph);
+
+                            let parent_global_transform =
+                                calculate_global_transform(node_index, &graph);
+
                             // TODO: This must not be correct, fix it
                             let joint_matrix =
                             // Inverse transform of the node the mesh is attached to
-                                glm::inverse(&graph[node_index].local_transform) *
+                                glm::inverse(&parent_global_transform) *
                             // Current global transform of the joint node
-                                graph[NodeIndex::new(joint.index)].local_transform *
+                                joint_global_transform *
                             // Transform of the joint's inverse bind matrix
                                 joint.inverse_bind_matrix;
 

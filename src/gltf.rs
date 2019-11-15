@@ -8,7 +8,11 @@ use gltf::{
 };
 use nalgebra::{Matrix4, Quaternion, UnitQuaternion};
 use nalgebra_glm as glm;
-use petgraph::graph::{Graph, NodeIndex};
+use petgraph::{
+    graph::{Graph, NodeIndex},
+    prelude::*,
+    visit::Dfs,
+};
 
 // TODO: Load bounding volumes using ncollide
 
@@ -576,4 +580,52 @@ fn prepare_primitive_gl(vertex_set: &VertexSet, indices: &[u32]) -> Primitive {
         num_indices: indices.len() as i32,
         material_index: None,
     }
+}
+
+pub fn path_between_nodes(
+    starting_node_index: NodeIndex,
+    node_index: NodeIndex,
+    graph: &NodeGraph,
+) -> Vec<NodeIndex> {
+    let mut indices = Vec::new();
+    let mut dfs = Dfs::new(&graph, starting_node_index);
+    while let Some(current_node_index) = dfs.next(&graph) {
+        let mut incoming_walker = graph
+            .neighbors_directed(current_node_index, Incoming)
+            .detach();
+        let mut outgoing_walker = graph
+            .neighbors_directed(current_node_index, Outgoing)
+            .detach();
+
+        if let Some(parent) = incoming_walker.next_node(&graph) {
+            while let Some(last_index) = indices.last() {
+                if *last_index == parent {
+                    break;
+                }
+                // Discard indices for transforms that are no longer needed
+                indices.pop();
+            }
+        }
+
+        indices.push(current_node_index);
+
+        if node_index == current_node_index {
+            break;
+        }
+
+        // If the node has no children, don't store the index
+        if outgoing_walker.next(&graph).is_none() {
+            indices.pop();
+        }
+    }
+    indices
+}
+
+pub fn calculate_global_transform(node_index: NodeIndex, graph: &NodeGraph) -> glm::Mat4 {
+    let indices = path_between_nodes(NodeIndex::new(0), node_index, graph);
+    indices
+        .iter()
+        .fold(glm::Mat4::identity(), |transform, index| {
+            transform * graph[*index].local_transform * graph[*index].animation_transform.matrix()
+        })
 }
