@@ -145,7 +145,8 @@ impl State for MainState {
                         }
                     }
 
-                    let current_transform =
+                    transform_indices.push(node_index);
+                    let global_transform =
                         transform_indices
                             .iter()
                             .fold(glm::Mat4::identity(), |transform, index| {
@@ -154,13 +155,9 @@ impl State for MainState {
                                     * graph[*index].animation_transform.matrix()
                             });
 
-                    let transform = current_transform
-                        * graph[node_index].local_transform
-                        * graph[node_index].animation_transform.matrix();
-
-                    // If the node has children, store the index for children to use
-                    if outgoing_walker.next(&graph).is_some() {
-                        transform_indices.push(node_index);
+                    // If the node has no children, don't store the index
+                    if !outgoing_walker.next(&graph).is_some() {
+                        transform_indices.pop();
                     }
 
                     // Skinning
@@ -335,7 +332,7 @@ impl State for MainState {
                                         ) * glm::scale(
                                             &glm::Mat4::identity(),
                                             &glm::vec3(6.0, 6.0, 6.0),
-                                        ) * transform)
+                                        ) * global_transform)
                                             .as_slice(),
                                     );
 
@@ -356,7 +353,7 @@ impl State for MainState {
                                 * view
                                 * glm::translate(&glm::Mat4::identity(), &point_light_pos1.xyz())
                                 * glm::scale(&glm::Mat4::identity(), &glm::vec3(2.0, 2.0, 2.0))
-                                * transform;
+                                * global_transform;
                             self.lamp_program.activate();
                             self.lamp_program
                                 .set_uniform_vec3("lamp_color", &point_light_color1.as_slice());
@@ -376,7 +373,7 @@ impl State for MainState {
                                 * view
                                 * glm::translate(&glm::Mat4::identity(), &point_light_pos2.xyz())
                                 * glm::scale(&glm::Mat4::identity(), &glm::vec3(2.0, 2.0, 2.0))
-                                * transform;
+                                * global_transform;
                             self.lamp_program.activate();
                             self.lamp_program
                                 .set_uniform_vec3("lamp_color", &point_light_color2.as_slice());
