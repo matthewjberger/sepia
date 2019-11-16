@@ -28,5 +28,6 @@ void main()
     // TODO: compute this on the cpu and pass it along
     normal = mat3(transpose(inverse(model))) * v_normal;
 
+    position = vec3(model * vec4(v_position, 1.0));
     gl_Position = projection * view * model * skinMatrix * vec4(v_position, 1.0);
 }

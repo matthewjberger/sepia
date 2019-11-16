@@ -21,7 +21,7 @@ impl State for MainState {
     fn initialize(&mut self) {
         self.shader_program = ShaderProgram::new();
         self.shader_program
-            .vertex_shader_file("assets/shaders/gltf/lit.vs.glsl")
+            .vertex_shader_file("assets/shaders/gltf/gltf.vs.glsl")
             .fragment_shader_file("assets/shaders/gltf/lit.fs.glsl")
             .link();
         self.lamp_program = ShaderProgram::new();
@@ -38,7 +38,8 @@ impl State for MainState {
             "assets/textures/skyboxes/bluemountains/front.jpg".to_string(),
         ]);
 
-        self.asset = Some(GltfAsset::from_file("assets/models/RiggedSimple.glb"));
+        // self.asset = Some(GltfAsset::from_file("assets/models/RiggedSimple.glb"));
+        self.asset = Some(GltfAsset::from_file("assets/models/Duck/Duck.gltf"));
 
         unsafe {
             gl::Enable(gl::CULL_FACE);
@@ -143,11 +144,12 @@ impl State for MainState {
                             // TODO: This must not be correct, fix it
                             let joint_matrix =
                             // Inverse transform of the node the mesh is attached to
-                                glm::inverse(&parent_global_transform) *
+                                // glm::inverse(&parent_global_transform) *
                             // Current global transform of the joint node
-                                joint_global_transform *
+                                // joint_global_transform *
                             // Transform of the joint's inverse bind matrix
-                                joint.inverse_bind_matrix;
+                                // joint.inverse_bind_matrix;
+                                glm::Mat4::identity();
 
                             self.shader_program.set_uniform_matrix4x4(
                                 &format!("u_jointMatrix[{}]", index),
