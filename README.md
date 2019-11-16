@@ -1,3 +1,3 @@
 # Sepia
 
-This will be a renderer one day, hopefully.
+This will be a renderer one day.
