@@ -2,8 +2,8 @@
 
 out vec4 color;
 
-float near = 0.1;
-float far = 1000.0;
+uniform float near;
+uniform float far;
 
 float LinearizeDepth(float depth)
 {
