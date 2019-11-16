@@ -4,8 +4,6 @@ use sepia::app::*;
 use sepia::{camera::*, gltf::*, shaderprogram::*, skybox::*};
 use std::ptr;
 
-const ONES: &[GLfloat; 1] = &[1.0];
-
 // TODO: Eventually remove default derivations where not necessary
 #[derive(Default)]
 struct MainState {
@@ -118,7 +116,7 @@ impl State for MainState {
             100000_f32,
         );
         unsafe {
-            gl::ClearBufferfv(gl::DEPTH, 0, ONES as *const f32);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
 
         let view = self.camera.view_matrix();
